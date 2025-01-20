@@ -12,5 +12,9 @@ class Pembicara extends Model
     protected $fillable = [
         'pmb_nama',
     ];
+
+    public function podcasts() {
+        return $this->hasMany('App\Models\Podcast', 'pmb_id', 'pmb_id' );
+    }
 }
 

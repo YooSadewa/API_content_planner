@@ -12,4 +12,8 @@ class Host extends Model
     protected $fillable = [
         'host_nama',
     ];
+
+    public function podcasts() {
+        return $this->hasMany(Podcast::class, 'host_id', 'host_id');
+    }
 }

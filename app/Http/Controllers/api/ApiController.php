@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Host;
 use App\Models\Pembicara;
+use App\Models\Podcast;
 use Illuminate\Support\Facades\Validator;
 
 class ApiController extends Controller
@@ -277,4 +278,184 @@ class ApiController extends Controller
         }
     }
     //End module
+
+    //Module podcast
+    public function getPodcast() {
+        try {
+            $podcasts = Podcast::with('hosts', 'pembicaras')->get();
+
+            if($podcasts->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Tidak ada podcast',
+                ], 404);
+            } else {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Berhasil mendapatkan podcast',
+                    'data' => [
+                        'podcast' => $podcasts->map(function ($podcast) {
+                            return [
+                                'pdc_id' => $podcast->pdc_id,
+                                'pdc_jadwal_shoot' => $podcast->pdc_jadwal_shoot,
+                                'pdc_jadwal_upload' => $podcast->pdc_jadwal_upload,
+                                'pdc_tema' => $podcast->pdc_tema,
+                                'pdc_abstrak' => $podcast->pdc_abstrak,
+                                'host_id' => $podcast->host_id,
+                                'host_nama' => $podcast->hosts ? $podcast->hosts->host_nama : null,
+                                'pmb_id' => $podcast->pmb_id,
+                                'pdc_nama' => $podcast->pembicaras ? $podcast->pembicaras->pmb_nama : null,
+                                'pdc_catatan' => $podcast->pdc_catatan,
+                            ];
+                        }) 
+                    ]
+                ], 200);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Terjadi kesalahan saat mendapatkan podcast',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function createPodcast(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'pdc_jadwal_shoot' => 'required|date',
+            'pdc_jadwal_upload' => 'nullable|date',
+            'pdc_tema' => 'required|string|max:150|unique:podcasts',
+            'pdc_abstrak' => 'nullable|string|max:150',
+            'pmb_id' => 'required|integer|exists:pembicaras,pmb_id',
+            'host_id' => 'required|integer|exists:hosts,host_id',
+            'pdc_catatan' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validator Error',
+                'error' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $podcast = Podcast::create([
+                'pdc_jadwal_shoot' => $request->pdc_jadwal_shoot,
+                'pdc_jadwal_upload' => $request->pdc_jadwal_upload,
+                'pdc_tema' => $request->pdc_tema,
+                'pdc_abstrak' => $request->pdc_abstrak, 
+                'pmb_id' => $request->pmb_id,
+                'host_id' => $request->host_id,
+                'pdc_catatan' => $request->pdc_catatan,
+            ]);
+
+            $podcast->load('hosts', 'pembicaras');
+            $podcast->makeHidden(['pdc_id']);
+            $podcast->hosts->makeHidden(['created_at', 'updated_at']);
+            $podcast->pembicaras->makeHidden(['created_at', 'updated_at']);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Podcast berhasil dibuat',
+                'data' => [
+                    'podcast' => $podcast,
+                ]
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Terjadi kesalahan saat membuat podcast',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updatePodcast($id, Request $request) {
+        $podcast = Podcast::where('pdc_id', $id)->first();
+
+        if (!$podcast) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Podcast tidak ditemukan',
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'pdc_jadwal_shoot' => 'required|date',
+            'pdc_jadwal_upload' => 'nullable|date',
+            'pdc_tema' => 'required|string|max:150|unique:podcasts,pdc_tema,'. $id . ',pdc_id',
+            'pdc_abstrak' => 'nullable|string|max:150',
+            'pmb_id' => 'required|integer|exists:pembicaras,pmb_id',
+            'host_id' => 'required|integer|exists:hosts,host_id',
+            'pdc_catatan' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validator Error',
+                'error' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $updatePodcast = $podcast->update([
+                'pdc_jadwal_shoot' => $request->pdc_jadwal_shoot,
+                'pdc_jadwal_upload' => $request->pdc_jadwal_upload,
+                'pdc_tema' => $request->pdc_tema,
+                'pdc_abstrak' => $request->pdc_abstrak,
+                'pmb_id' => $request->pmb_id,
+                'host_id' => $request->host_id,
+                'pdc_catatan' => $request->pdc_catatan,
+            ]);
+
+            $podcast->load('hosts', 'pembicaras');
+            $podcast->makeHidden(['pdc_id']);
+            $podcast->hosts->makeHidden(['created_at', 'updated_at']);
+            $podcast->pembicaras->makeHidden(['created_at', 'updated_at']);
+
+            if ($updatePodcast) {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Podcast berhasil diupdate',
+                    'data' => [
+                        'podcast' => $podcast
+                    ]
+                ], 200);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mengupdate podcast',
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    public function deletePodcast($id) {
+        try {
+            $podcast = Podcast::find($id);
+
+            if(!$podcast) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Podcast tidak ditemukan',
+                ], 404);
+            }
+
+            $podcast->delete();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Podcast berhasil dihapus',
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menghapus podcast',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

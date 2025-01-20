@@ -15,3 +15,9 @@ Route::get('/pembicara', [ApiController::class, 'getSpeaker']);
 Route::post('/pembicara/create', [ApiController::class, 'createSpeaker']);
 Route::put('/pembicara/update/{id}', [ApiController::class, 'updateSpeaker']);
 Route::delete('/pembicara/delete/{id}', [ApiController::class, 'deleteSpeaker']);
+
+//Podcast route
+Route::get('/podcast', [ApiController::class, 'getPodcast']);
+Route::post('/podcast/create', [ApiController::class, 'createPodcast']);
+Route::put('/podcast/update/{id}', [ApiController::class, 'updatePodcast']);
+Route::delete('/podcast/delete/{id}', [ApiController::class, 'deletePodcast']);

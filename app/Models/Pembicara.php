@@ -11,6 +11,7 @@ class Pembicara extends Model
 
     protected $fillable = [
         'pmb_nama',
+        'pmb_isactive'
     ];
 
     public function podcasts() {

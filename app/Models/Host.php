@@ -11,6 +11,7 @@ class Host extends Model
 
     protected $fillable = [
         'host_nama',
+        'host_isactive'
     ];
 
     public function podcasts() {

@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('hosts', function (Blueprint $table) {
             $table->id('host_id');
             $table->string('host_nama');
+            $table->enum('host_isactive', ['Y', 'N'])->default('Y');
             $table->timestamps();
         });
     }

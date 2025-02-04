@@ -21,6 +21,7 @@ return new class extends Migration
             $table->foreign('pmb_id')->references('pmb_id')->on('pembicaras')->onDelete('cascade');
             $table->unsignedBigInteger('host_id');
             $table->foreign('host_id')->references('host_id')->on('hosts')->onDelete('cascade');
+            $table->text('pdc_link')->nullable();
             $table->text('pdc_catatan')->nullable();
             $table->timestamps();
         });

@@ -17,6 +17,7 @@ class Podcast extends Model
         'pdc_abstrak',
         'pmb_id',
         'host_id',
+        'pdc_link',
         'pdc_catatan'
     ];
 

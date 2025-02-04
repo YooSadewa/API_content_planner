@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('pembicaras', function (Blueprint $table) {
             $table->id('pmb_id');
             $table->string('pmb_nama');
+            $table->enum('pmb_isactive', ['Y', 'N'])->default('Y');
             $table->timestamps();
         });
     }

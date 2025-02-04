@@ -120,16 +120,18 @@ class ApiController extends Controller
 
     public function deleteHost($id) {
         try {
-            $host = Host::find($id);
+            $host = Host::where('host_id', $id)->where('host_isactive', 'Y')->first();
 
-            if(!$host) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Host tidak ditemukan',
-                ], 404);
-            }
+            if (!$host) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'Host tidak ditemukan',
+                    ], 404);
+                }
 
-            $host->delete();
+                $host->update([
+                    'host_isactive' => 'N'
+                ]);
 
             return response()->json([
                 'status' => true,
@@ -254,20 +256,22 @@ class ApiController extends Controller
 
     public function deleteSpeaker($id) {
         try {
-            $speaker = Pembicara::find($id);
-
-            if(!$speaker) {
+            $speaker = Pembicara::where('pmb_id', $id)->where('pmb_isactive', 'Y')->first();
+    
+            if (!$speaker) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Pembicara tidak ditemukan',
                 ], 404);
             }
-
-            $speaker->delete();
-
+    
+            $speaker->update([
+                'pmb_isactive' => 'N'
+            ]);
+    
             return response()->json([
                 'status' => true,
-                'message' => 'Pembicara berhasil dihapus',
+                'message' => 'Pembicara berhasil dinonaktifkan',
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
@@ -276,15 +280,18 @@ class ApiController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
-    }
+    }    
     //End module
 
     //Module podcast
     public function getPodcast() {
         try {
-            $podcasts = Podcast::with('hosts', 'pembicaras')->get();
-
-            if($podcasts->isEmpty()) {
+            // Query untuk mendapatkan podcast dengan sorting sesuai kebutuhan
+            $podcasts = Podcast::with('hosts', 'pembicaras')
+                ->orderByRaw('pdc_link IS NOT NULL, pdc_jadwal_shoot ASC') // Sorting custom
+                ->get();
+    
+            if ($podcasts->isEmpty()) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Tidak ada podcast',
@@ -305,9 +312,10 @@ class ApiController extends Controller
                                 'host_nama' => $podcast->hosts ? $podcast->hosts->host_nama : null,
                                 'pmb_id' => $podcast->pmb_id,
                                 'pdc_nama' => $podcast->pembicaras ? $podcast->pembicaras->pmb_nama : null,
+                                'pdc_link' => $podcast->pdc_link,
                                 'pdc_catatan' => $podcast->pdc_catatan,
                             ];
-                        }) 
+                        })
                     ]
                 ], 200);
             }
@@ -318,7 +326,7 @@ class ApiController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
-    }
+    }  
 
     public function createPodcast(Request $request) {
         $validator = Validator::make($request->all(), [
@@ -368,6 +376,48 @@ class ApiController extends Controller
                 'message' => 'Terjadi kesalahan saat membuat podcast',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    public function uploadPodcast($id, Request $request) {
+        $podcast = Podcast::where('pdc_id', $id)->first();
+        if (!$podcast) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Podcast tidak ditemukan',
+            ], 404);
+        }
+        $validator = Validator::make($request->all(), [
+            'pdc_link' => 'url|required|string'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validator Error',
+                'error' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $uploadPodcast = $podcast->update([
+                'pdc_link' => $request->pdc_link,
+            ]);
+            if ($uploadPodcast) {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Link Podcast berhasil diupdate',
+                    'data' => [
+                        'link' => $podcast
+                    ]
+                ], 200);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mengupdate link podcast',
+                'error' => $e->getMessage()
+            ]);
         }
     }
 

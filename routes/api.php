@@ -22,3 +22,15 @@ Route::post('/podcast/create', [ApiController::class, 'createPodcast']);
 Route::put('/podcast/update/{id}', [ApiController::class, 'updatePodcast']);
 Route::delete('/podcast/delete/{id}', [ApiController::class, 'deletePodcast']);
 Route::put('/podcast/upload/{id}', [ApiController::class, 'uploadPodcast']);
+
+//Quote route
+Route::get('/quote', [ApiController::class, 'getQuote']);
+Route::post('/quote/create', [ApiController::class, 'createQuote']);
+Route::put('/quote/update/{id}', [ApiController::class, 'updateQuote']);
+Route::delete('/quote/delete/{id}', [ApiController::class, 'deleteQuote']);
+
+//Inspiring People route
+Route::get('/inspiringpeople', [ApiController::class, 'getInspPeople']);
+Route::post('/inspiringpeople/create', [ApiController::class, 'createInspPeople']);
+Route::put('/inspiringpeople/update/{id}', [ApiController::class, 'updateInspPeople']);
+Route::delete('/inspiringpeople/delete/{id}', [ApiController::class, 'deleteInspPeople']);

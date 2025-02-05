@@ -5,8 +5,10 @@ namespace App\Http\Controllers\api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Host;
+use App\Models\InspiringPeople;
 use App\Models\Pembicara;
 use App\Models\Podcast;
+use App\Models\Quotes;
 use Illuminate\Support\Facades\Validator;
 
 class ApiController extends Controller
@@ -504,6 +506,271 @@ class ApiController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Gagal menghapus podcast',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    //End module
+
+    //Module Quote of the Day
+    public function getQuote() {
+        try {
+            $quote = Quotes::all();
+
+            if($quote->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Tidak ada quote',
+                    'data' => null
+                ], 404);
+            } else {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Berhasil mendapatkan quote',
+                    'data' => [
+                        'quote' => $quote
+                    ]
+                ], 200);
+            }
+        }
+        catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mendapatkan quote',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function createQuote(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'qotd_link' => 'required|unique:quotes|url',
+        ]);
+
+        if($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validator error',
+                'error' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $quote = Quotes::create([
+                'qotd_link' => $request->qotd_link
+            ]);
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil menambahkan quote',
+                'data' => [
+                    'quote' => $quote
+                ]
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menambahkan quote',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateQuote(Request $request, $id) {
+        $quote = Quotes::where('qotd_id', $id)->first();
+
+        if(!$quote) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Quote tidak ditemukan',
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'qotd_link' => 'required|url|unique:quotes,qotd_Link,'. $id . ',qotd_id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validator Error',
+                'error' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $updateQuote = $quote->update([
+                'qotd_link' => $request->qotd_link
+            ]);
+
+            if($updateQuote) {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Berhasil mengupdate quote',
+                    'data' => [
+                        'quote' => $quote
+                    ]
+                ], 200);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mengupdate quote',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deleteQuote($id) {
+        try {
+            $quote = Quotes::find($id);
+
+            if(!$quote) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Quote tidak ditemukan',
+                ], 404);
+            }
+            $quote->delete();
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil menghapus quote',
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menghapus quote',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    //End module
+
+    //Module Inspiring People
+    public function getInspPeople() {
+        try {
+            $inspiringPeople = InspiringPeople::all();
+
+            if($inspiringPeople->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Tidak ada data inspiring people',
+                ], 404);
+            } else {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Berhasil mendapatkan data inspiring people',
+                    'data' => [
+                        'inspiringPeople' => $inspiringPeople
+                    ]
+                ], 200);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mendapatkan data inspiring people',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function createInspPeople(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'ins_nama' => 'required|string|unique:inspiring_people',
+            'ins_link' => 'required|url|unique:inspiring_people',
+        ]);
+
+        if($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validator error',
+                'error' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $inspiringPeople = InspiringPeople::create([
+                'ins_nama' => $request->ins_nama,
+                'ins_link' => $request->ins_link,
+            ]);
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil menambahkan data inspiring people',
+                'data' => [
+                    'inspiringPeople' => $inspiringPeople
+                ]
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menambahkan data inspiring people',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateInspPeople(Request $request, $id) {
+        $inspiringPeople = InspiringPeople::where('ins_id', $id)->first();
+
+        if(!$inspiringPeople) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data inspiring people tidak ditemukan',
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'ins_nama' => 'required|string|unique:inspiring_people,ins_nama,'. $id . ',ins_id',
+            'ins_link' => 'required|url|unique:inspiring_people,ins_link,'. $id . ',ins_id',
+        ]);
+
+        if($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validator error',
+                'error' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $inspiringPeople->update([
+                'ins_nama' => $request->ins_nama,
+                'ins_link' => $request->ins_link,
+            ]);
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mengupdate data inspiring people',
+                'data' => [
+                    'inspiringPeople' => $inspiringPeople
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mengupdate data inspiring people',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deleteInspPeople($id) {
+        try {
+            $inspiringPeople = InspiringPeople::find($id);
+
+            if(!$inspiringPeople) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data inspiring people tidak ditemukan',
+                ], 404);
+            }
+            $inspiringPeople->delete();
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil menghapus data inspiring people',
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menghapus data inspiring people',
                 'error' => $e->getMessage()
             ], 500);
         }

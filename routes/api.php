@@ -34,3 +34,9 @@ Route::get('/inspiringpeople', [ApiController::class, 'getInspPeople']);
 Route::post('/inspiringpeople/create', [ApiController::class, 'createInspPeople']);
 Route::put('/inspiringpeople/update/{id}', [ApiController::class, 'updateInspPeople']);
 Route::delete('/inspiringpeople/delete/{id}', [ApiController::class, 'deleteInspPeople']);
+
+//Ide Konten Foto route
+Route::get('/idekontenfoto', [ApiController::class, 'getIdeKontenFoto']);
+Route::post('/idekontenfoto/create', [ApiController::class, 'createIdeKontenFoto']);
+Route::put('/idekontenfoto/update/{id}', [ApiController::class, 'updateIdeKontenFoto']);
+Route::delete('/idekontenfoto/delete/{id}', [ApiController::class, 'deleteIdeKontenFoto']);

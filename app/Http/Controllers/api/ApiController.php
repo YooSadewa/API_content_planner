@@ -5,6 +5,7 @@ namespace App\Http\Controllers\api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Host;
+use App\Models\IdeKontenFoto;
 use App\Models\InspiringPeople;
 use App\Models\Pembicara;
 use App\Models\Podcast;
@@ -771,6 +772,147 @@ class ApiController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Gagal menghapus data inspiring people',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    //End module
+
+    //Module Ide Konten
+    public function getIdeKontenFoto() {
+        try {
+            $idekontenfoto = IdeKontenFoto::all();
+
+            if($idekontenfoto->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data ide konten foto tidak ditemukan',
+                ], 404);
+            } else {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Berhasil mendapatkan data ide konten foto',
+                    'data' => [
+                        'ide_konten_foto' => $idekontenfoto
+                    ]
+                ], 200);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mendapatkan data ide konten foto',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function createIdeKontenFoto(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'ikf_tgl' => 'date|required',
+            'ikf_judul_konten' => 'string|required|max:150|unique:ide_konten_foto',
+            'ikf_ringkasan' => 'string|required|max:150',
+            'ikf_referensi' => 'url|nullable'
+        ]);
+
+        if($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak valid',
+                'error' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $idekontenfoto = IdeKontenFoto::create([
+                'ikf_tgl' => $request->ikf_tgl,
+                'ikf_judul_konten' => $request->ikf_judul_konten,
+                'ikf_ringkasan' => $request->ikf_ringkasan,
+                'ikf_referensi' => $request->ikf_referensi
+            ]);
+            
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil membuat ide konten foto',
+                'data' => [
+                    'ide_konten_foto' => $idekontenfoto
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal membuat ide konten foto',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateIdeKontenFoto(Request $request, $id) {
+        $idekontenfoto = IdeKontenFoto::where('ikf_id', $id)->first();
+        if(!$idekontenfoto) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak ditemukan',
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'ikf_tgl' => 'date|required',
+            'ikf_judul_konten' => 'string|required|max:150|unique:ide_konten_foto,ikf_judul_konten,'. $id . ',ikf_id',
+            'ikf_ringkasan' => 'string|required|max:150',
+            'ikf_referensi' => 'url|nullable'
+        ]);
+
+        if($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak valid',
+                'error' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $idekontenfoto->update([
+                'ikf_tgl' => $request->ikf_tgl,
+                'ikf_judul_konten' => $request->ikf_judul_konten,
+                'ikf_ringkasan' => $request->ikf_ringkasan,
+                'ikf_referensi' => $request->ikf_referensi
+            ]);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mengupdate ide konten foto',
+                'data' => [
+                    'ide_konten_foto' => $idekontenfoto
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mengupdate ide konten foto',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deleteIdeKontenFoto($id) {
+        try {
+            $idekontenfoto = IdeKontenFoto::find($id);
+
+            if(!$idekontenfoto) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data tidak ditemukan',
+                ], 404);
+            }
+            $idekontenfoto->delete();
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil menghapus ide konten foto',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menghapus ide konten foto',
                 'error' => $e->getMessage()
             ], 500);
         }

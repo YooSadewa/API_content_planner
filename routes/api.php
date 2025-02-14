@@ -40,3 +40,8 @@ Route::get('/idekontenfoto', [ApiController::class, 'getIdeKontenFoto']);
 Route::post('/idekontenfoto/create', [ApiController::class, 'createIdeKontenFoto']);
 Route::put('/idekontenfoto/update/{id}', [ApiController::class, 'updateIdeKontenFoto']);
 Route::delete('/idekontenfoto/delete/{id}', [ApiController::class, 'deleteIdeKontenFoto']);
+
+//Ide Konten Video route
+Route::get('/idekontenvideo', [ApiController::class, 'getIdeKontenVideo']);
+Route::post('/idekontenvideo/create', [ApiController::class, 'createIdeKontenVideo']);
+Route::put('/idekontenvideo/upload/{id}', [ApiController::class, 'confirmUploadKontenVideo']);

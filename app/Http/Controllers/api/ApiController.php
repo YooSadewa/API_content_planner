@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Host;
 use App\Models\IdeKontenFoto;
+use App\Models\IdeKontenVideo;
 use App\Models\InspiringPeople;
 use App\Models\Pembicara;
 use App\Models\Podcast;
@@ -915,6 +916,132 @@ class ApiController extends Controller
                 'message' => 'Gagal menghapus ide konten foto',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+    
+    public function getIdeKontenVideo() {
+        try {
+            $idekontenvideo = IdeKontenVideo::all();
+
+            if($idekontenvideo->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data ide konten video tidak ditemukan',
+                ], 404);
+            } else {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Berhasil mendapatkan data ide konten video',
+                    'data' => [
+                        'ide_konten_video' => $idekontenvideo
+                    ]
+                ], 200);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mendapatkan data ide konten video',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function createIdeKontenVideo(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'ikv_tgl' => 'date|required',
+            'ikv_judul_konten' => 'string|required|max:150|unique:ide_konten_video',
+            'ikv_ringkasan' => 'string|required|max:150',
+            'ikv_pic' => 'required|string',
+            'ikv_skrip' => 'required|mimes:pdf,doc,docx|max:2048',
+            'ikv_upload' => 'date|nullable'
+        ]);
+
+        if($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak valid',
+                'error' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            if ($request->hasFile('ikv_skrip')) {
+                $file = $request->file('ikv_skrip');
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $file->move(public_path('uploads'), $filename);
+            } else {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'File skrip tidak ditemukan'
+                ], 400);
+            }
+
+            $idekontenvideo = IdeKontenVideo::create([
+                'ikv_tgl' => $request->ikv_tgl,
+                'ikv_judul_konten' => $request->ikv_judul_konten,
+                'ikv_ringkasan' => $request->ikv_ringkasan,
+                'ikv_pic' => $request->ikv_pic,
+                'ikv_skrip' => $filename,
+                'ikv_upload' => $request->ikv_upload
+            ]);
+            
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil membuat ide konten video',
+                'data' => [
+                    'ide_konten_video' => array_merge($idekontenvideo->toArray(), [
+                        'ikv_status' => $idekontenvideo->ikv_status ?? 'scheduled'
+                    ])
+                ]
+            ]);            
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal membuat ide konten video',
+                'error' => $e->getMessage()
+            ], 500);
+        } 
+    }
+
+    public function confirmUploadKontenVideo(Request $request, $id) {
+        $kontenvideo = IdeKontenVideo::where('ikv_id', $id)->first();
+        if (!$kontenvideo) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Konten Video tidak ditemukan',
+            ], 404);
+        }
+        $validator = Validator::make($request->all(), [
+            'ikv_upload' => 'date|required'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validator Error',
+                'error' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $uploadKontenVideo = $kontenvideo->update([
+                'ikv_upload' => $request->ikv_upload,
+            ]);
+            if ($uploadKontenVideo) {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Tanggal Upload sudah dikonfirmasi',
+                    'data' => [
+                        'ikv_upload' => $kontenvideo
+                    ]
+                ], 200);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menkonfirmasi konten video',
+                'error' => $e->getMessage()
+            ]);
         }
     }
 }

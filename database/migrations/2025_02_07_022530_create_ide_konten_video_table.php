@@ -16,8 +16,8 @@ return new class extends Migration
             $table->date('ikv_tgl');
             $table->string('ikv_judul_konten', 150);
             $table->string('ikv_ringkasan', 150);
-            $table->binary('ikv_foto');
-            $table->enum('ikv_status', ['scheduled', 'on hold', 'done']);
+            $table->string('ikv_pic');
+            $table->enum('ikv_status', ['scheduled', 'on hold', 'done'])->default('scheduled');
             $table->string('ikv_skrip');
             $table->date('ikv_upload')->nullable();
             $table->timestamps();

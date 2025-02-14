@@ -952,6 +952,7 @@ class ApiController extends Controller
             'ikv_judul_konten' => 'string|required|max:150|unique:ide_konten_video',
             'ikv_ringkasan' => 'string|required|max:150',
             'ikv_pic' => 'required|string',
+            'ikv_status' => 'required|string',
             'ikv_skrip' => 'required|mimes:pdf,doc,docx|max:2048',
             'ikv_upload' => 'date|nullable'
         ]);
@@ -981,6 +982,7 @@ class ApiController extends Controller
                 'ikv_judul_konten' => $request->ikv_judul_konten,
                 'ikv_ringkasan' => $request->ikv_ringkasan,
                 'ikv_pic' => $request->ikv_pic,
+                'ikv_status' => $request->ikv_status,
                 'ikv_skrip' => $filename,
                 'ikv_upload' => $request->ikv_upload
             ]);
@@ -989,9 +991,7 @@ class ApiController extends Controller
                 'status' => true,
                 'message' => 'Berhasil membuat ide konten video',
                 'data' => [
-                    'ide_konten_video' => array_merge($idekontenvideo->toArray(), [
-                        'ikv_status' => $idekontenvideo->ikv_status ?? 'scheduled'
-                    ])
+                    'ide_konten_video' => $idekontenvideo
                 ]
             ]);            
         } catch (\Exception $e) {
@@ -1012,7 +1012,7 @@ class ApiController extends Controller
             ], 404);
         }
         $validator = Validator::make($request->all(), [
-            'ikv_upload' => 'date|required'
+            'ikv_upload' => 'date|required',
         ]);
 
         if ($validator->fails()) {
@@ -1026,6 +1026,7 @@ class ApiController extends Controller
         try {
             $uploadKontenVideo = $kontenvideo->update([
                 'ikv_upload' => $request->ikv_upload,
+                'ikv_status' => 'done',
             ]);
             if ($uploadKontenVideo) {
                 return response()->json([

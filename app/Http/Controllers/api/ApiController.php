@@ -1045,4 +1045,105 @@ class ApiController extends Controller
             ]);
         }
     }
+
+    public function updateIdeKontenVideo(Request $request, $id) {
+        $idekontenvideo = IdeKontenVideo::where('ikv_id', $id)->first();
+        if(!$idekontenvideo) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak ditemukan',
+            ], 404);
+        }
+    
+        $rules = [
+            'ikv_tgl' => 'date|required',
+            'ikv_judul_konten' => 'string|required|max:150|unique:ide_konten_video,ikv_judul_konten,'. $id . ',ikv_id',
+            'ikv_ringkasan' => 'string|required|max:150',
+            'ikv_pic' => 'required|string',
+            'ikv_status' => 'required|string',
+            'ikv_upload' => 'date|nullable'
+        ];
+    
+        // Only validate file if it's present
+        if ($request->hasFile('ikv_skrip')) {
+            $rules['ikv_skrip'] = 'required|mimes:pdf,doc,docx|max:2048';
+        }
+    
+        $validator = Validator::make($request->all(), $rules);
+    
+        if($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak valid',
+                'error' => $validator->errors()
+            ], 400);
+        }
+    
+        try {
+            $updateData = [
+                'ikv_tgl' => $request->ikv_tgl,
+                'ikv_judul_konten' => $request->ikv_judul_konten,
+                'ikv_ringkasan' => $request->ikv_ringkasan,
+                'ikv_pic' => $request->ikv_pic,
+                'ikv_status' => $request->ikv_status,
+                'ikv_upload' => $request->ikv_upload
+            ];
+    
+            // Handle file upload only if new file is provided
+            if ($request->hasFile('ikv_skrip')) {
+                // Delete old file if exists
+                if ($idekontenvideo->ikv_skrip) {
+                    $oldFilePath = public_path('uploads/' . $idekontenvideo->ikv_skrip);
+                    if (file_exists($oldFilePath)) {
+                        unlink($oldFilePath);
+                    }
+                }
+    
+                $file = $request->file('ikv_skrip');
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $file->move(public_path('uploads'), $filename);
+                $updateData['ikv_skrip'] = $filename;
+            }
+    
+            $idekontenvideo->update($updateData);
+    
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mengupdate ide konten video',
+                'data' => [
+                    'ide_konten_video' => $idekontenvideo
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mengupdate ide konten video',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deleteIdeKontenVideo($id) {
+        try {
+            $idekontenvideo = IdeKontenVideo::find($id);
+
+            if(!$idekontenvideo) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data tidak ditemukan',
+                ], 404);
+            }
+            $idekontenvideo->delete();
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil menghapus ide konten video',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menghapus ide konten video',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

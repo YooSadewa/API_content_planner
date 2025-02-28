@@ -1,8 +1,21 @@
 <?php
 
 use App\Http\Controllers\api\ApiController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+//Ide Konten Foto route
+Route::get('/idekontenfoto', [ApiController::class, 'getIdeKontenFoto']);
+Route::post('/idekontenfoto/create', [ApiController::class, 'createIdeKontenFoto']);
+Route::put('/idekontenfoto/update/{id}', [ApiController::class, 'updateIdeKontenFoto']);
+Route::put('/idekontenfoto/upload/{id}', [ApiController::class, 'confirmUploadKontenFoto']);
+Route::delete('/idekontenfoto/delete/{id}', [ApiController::class, 'deleteIdeKontenFoto']);
+
+//Ide Konten Video route
+Route::get('/idekontenvideo', [ApiController::class, 'getIdeKontenVideo']);
+Route::post('/idekontenvideo/create', [ApiController::class, 'createIdeKontenVideo']);
+Route::put('/idekontenvideo/upload/{id}', [ApiController::class, 'confirmUploadKontenVideo']);
+Route::put('/idekontenvideo/update/{id}', [ApiController::class, 'updateIdeKontenVideo']);
+Route::delete('/idekontenvideo/delete/{id}', [ApiController::class, 'deleteIdeKontenVideo']);
 
 //Host route
 Route::get('/host', [ApiController::class, 'getHost']);
@@ -35,15 +48,3 @@ Route::post('/inspiringpeople/create', [ApiController::class, 'createInspPeople'
 Route::put('/inspiringpeople/update/{id}', [ApiController::class, 'updateInspPeople']);
 Route::delete('/inspiringpeople/delete/{id}', [ApiController::class, 'deleteInspPeople']);
 
-//Ide Konten Foto route
-Route::get('/idekontenfoto', [ApiController::class, 'getIdeKontenFoto']);
-Route::post('/idekontenfoto/create', [ApiController::class, 'createIdeKontenFoto']);
-Route::put('/idekontenfoto/update/{id}', [ApiController::class, 'updateIdeKontenFoto']);
-Route::delete('/idekontenfoto/delete/{id}', [ApiController::class, 'deleteIdeKontenFoto']);
-
-//Ide Konten Video route
-Route::get('/idekontenvideo', [ApiController::class, 'getIdeKontenVideo']);
-Route::post('/idekontenvideo/create', [ApiController::class, 'createIdeKontenVideo']);
-Route::put('/idekontenvideo/upload/{id}', [ApiController::class, 'confirmUploadKontenVideo']);
-Route::put('/idekontenvideo/update/{id}', [ApiController::class, 'updateIdeKontenVideo']);
-Route::delete('/idekontenvideo/delete/{id}', [ApiController::class, 'deleteIdeKontenVideo']);

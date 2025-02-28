@@ -15,17 +15,9 @@ class Podcast extends Model
         'pdc_jadwal_upload',
         'pdc_tema',
         'pdc_abstrak',
-        'pmb_id',
-        'host_id',
+        'pdc_host',
+        'pdc_speaker',
         'pdc_link',
         'pdc_catatan'
     ];
-
-    public function hosts() {
-        return $this->belongsTo(Host::class, 'host_id', 'host_id');
-    }
-
-    public function pembicaras() {
-        return $this->belongsTo(Pembicara::class, 'pmb_id', 'pmb_id' );
-    }
 }

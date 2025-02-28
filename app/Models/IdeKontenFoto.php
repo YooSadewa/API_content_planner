@@ -12,6 +12,10 @@ class IdeKontenFoto extends Model
         'ikf_tgl',
         'ikf_judul_konten',
         'ikf_ringkasan',
-        'ikf_referensi'
+        'ikf_pic',
+        'ikf_status',
+        'ikf_skrip',
+        'ikf_referensi',
+        'ikf_upload'
     ];
 }

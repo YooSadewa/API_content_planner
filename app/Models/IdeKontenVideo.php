@@ -15,6 +15,7 @@ class IdeKontenVideo extends Model
         'ikv_pic',
         'ikv_status',
         'ikv_skrip',
+        'ikv_referensi',
         'ikv_upload'
     ];
 }

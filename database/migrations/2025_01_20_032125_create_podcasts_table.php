@@ -17,10 +17,8 @@ return new class extends Migration
             $table->date('pdc_jadwal_upload')->nullable();
             $table->string('pdc_tema', 150);
             $table->string('pdc_abstrak', 150)->nullable();
-            $table->unsignedBigInteger('pmb_id');
-            $table->foreign('pmb_id')->references('pmb_id')->on('pembicaras')->onDelete('cascade');
-            $table->unsignedBigInteger('host_id');
-            $table->foreign('host_id')->references('host_id')->on('hosts')->onDelete('cascade');
+            $table->string('pdc_host');
+            $table->string('pdc_speaker');
             $table->text('pdc_link')->nullable();
             $table->text('pdc_catatan')->nullable();
             $table->timestamps();

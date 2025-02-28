@@ -13,10 +13,14 @@ return new class extends Migration
     {
         Schema::create('ide_konten_foto', function (Blueprint $table) {
             $table->id('ikf_id');
-            $table->date('ikf_tgl');
+            $table->date('ikf_tgl')->nullable();
             $table->string('ikf_judul_konten', 150);
             $table->string('ikf_ringkasan', 150);
+            $table->string('ikf_pic');
+            $table->enum('ikf_status', ['scheduled', 'on hold', 'done'])->default('scheduled');
+            $table->string('ikf_skrip')->nullable();
             $table->string('ikf_referensi')->nullable();
+            $table->date('ikf_upload')->nullable();
             $table->timestamps();
         });
     }

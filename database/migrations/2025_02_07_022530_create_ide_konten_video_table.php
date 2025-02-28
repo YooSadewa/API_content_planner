@@ -13,12 +13,13 @@ return new class extends Migration
     {
         Schema::create('ide_konten_video', function (Blueprint $table) {
             $table->id('ikv_id');
-            $table->date('ikv_tgl');
+            $table->date('ikv_tgl')->nullable();
             $table->string('ikv_judul_konten', 150);
             $table->string('ikv_ringkasan', 150);
             $table->string('ikv_pic');
             $table->enum('ikv_status', ['scheduled', 'on hold', 'done'])->default('scheduled');
-            $table->string('ikv_skrip');
+            $table->string('ikv_skrip')->nullable();
+            $table->string('ikv_referensi')->nullable();
             $table->date('ikv_upload')->nullable();
             $table->timestamps();
         });

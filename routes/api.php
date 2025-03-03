@@ -48,3 +48,7 @@ Route::post('/inspiringpeople/create', [ApiController::class, 'createInspPeople'
 Route::put('/inspiringpeople/update/{id}', [ApiController::class, 'updateInspPeople']);
 Route::delete('/inspiringpeople/delete/{id}', [ApiController::class, 'deleteInspPeople']);
 
+//Detail Account route
+Route::get('/detailaccount', [ApiController::class, 'getDetailAccount']);
+Route::post('/detailaccount/create', [ApiController::class, 'createDetailAccount']);
+Route::post('/detailplatform/create', [ApiController::class, 'createPlatform']);

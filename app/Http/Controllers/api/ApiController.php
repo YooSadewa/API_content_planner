@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Models\DetailAccount;
+use App\Models\DetailPlatform;
 use Illuminate\Http\Request;
 use App\Models\Host;
 use App\Models\IdeKontenFoto;
@@ -937,6 +939,153 @@ class ApiController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Gagal menghapus ide konten video',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    //Module Detail Account
+    public function getDetailAccount() {
+        try {
+            $detailacc = DetailAccount::with('platforms')->get();
+
+            if ($detailacc->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data Akun tidak ditemukan',
+                ], 404);
+            }
+    
+            $formattedData = $detailacc->map(function ($account) {
+                $platformData = [];
+                foreach ($account->platforms as $platform) {
+                    $platformData[$platform->dpl_platform] = [
+                        'dpl_id' => $platform->dpl_id,
+                        'dpl_total_konten' => $platform->dpl_total_konten,
+                        'dpl_pengikut' => $platform->dpl_pengikut,
+                    ];
+                }
+    
+                return [
+                    'dacc_id' => $account->dacc_id,
+                    'dacc_bulan' => $account->dacc_bulan,
+                    'dacc_tahun' => $account->dacc_tahun,
+                    'created_at' => $account->created_at,
+                    'updated_at' => $account->updated_at,
+                ] + $platformData; // Menggabungkan platform data langsung ke akun
+            });
+    
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mendapatkan data Akun',
+                'data' => [
+                    'detail_akun' => $formattedData
+                ]
+            ], 200);
+    
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mendapatkan data akun',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }    
+
+    public function createDetailAccount(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'dacc_bulan' => 'numeric|required',
+            'dacc_tahun' => 'numeric|required|min:2000',
+        ]);
+    
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak valid',
+                'error' => $validator->errors()
+            ], 400);
+        }
+    
+        try {
+            $existingAccount = DetailAccount::where('dacc_bulan', $request->dacc_bulan)
+                ->where('dacc_tahun', $request->dacc_tahun)
+                ->first();
+    
+            if ($existingAccount) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Detail tanggal sudah ada',
+                ], 400);
+            }
+    
+            // Jika belum ada, buat akun baru
+            $detailacc = DetailAccount::create([
+                'dacc_bulan' => $request->dacc_bulan,
+                'dacc_tahun' => $request->dacc_tahun,
+            ]);
+    
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil membuat detail tanggal',
+                'data' => $detailacc
+            ], 201);
+    
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal membuat detail tanggal',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function createPlatform(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'dacc_id' => 'required|exists:detail_account,dacc_id',
+            'dpl_platform' => 'string|required|in:website,instagram,twitter,facebook,youtube,tiktok',
+            'dpl_total_konten' => 'numeric|required',
+            'dpl_pengikut' => 'numeric|nullable',
+        ]);
+    
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak valid',
+                'error' => $validator->errors()
+            ], 400);
+        }
+    
+        try {
+            // Cek apakah platform sudah ada untuk akun ini
+            $exists = DetailPlatform::where('dacc_id', $request->dacc_id)
+                ->where('dpl_platform', $request->dpl_platform)
+                ->exists();
+    
+            if ($exists) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data sudah ada dalam tanggal ini',
+                ], 400);
+            }
+    
+            // Simpan data platform
+            $platform = DetailPlatform::create([
+                'dacc_id' => $request->dacc_id,
+                'dpl_platform' => $request->dpl_platform,
+                'dpl_total_konten' => $request->dpl_total_konten,
+                'dpl_pengikut' => $request->dpl_pengikut ?? null,
+            ]);
+    
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil menambahkan data',
+                'data' => $platform
+            ], 201);
+    
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menambahkan data',
                 'error' => $e->getMessage()
             ], 500);
         }

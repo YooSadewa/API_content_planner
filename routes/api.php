@@ -50,5 +50,8 @@ Route::delete('/inspiringpeople/delete/{id}', [ApiController::class, 'deleteInsp
 
 //Detail Account route
 Route::get('/detailaccount', [ApiController::class, 'getDetailAccount']);
+Route::get('/detailaccount/get-by-month-year', [ApiController::class, 'getByMonthYear']);
+Route::get('/detailplatform/get-by-dacc', [ApiController::class, 'getByDacc']);
 Route::post('/detailaccount/create', [ApiController::class, 'createDetailAccount']);
 Route::post('/detailplatform/create', [ApiController::class, 'createPlatform']);
+Route::put('/detailplatform/update/{id}', [ApiController::class, 'updateDetailPlatform']);

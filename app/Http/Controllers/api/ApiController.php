@@ -992,6 +992,110 @@ class ApiController extends Controller
         }
     }    
 
+    public function getByMonthYear(Request $request)
+    {
+        try {
+            $month = $request->query('month');
+            $year = $request->query('year');
+
+            $detailacc = DetailAccount::with('platforms')
+                ->where('dacc_bulan', $month)
+                ->where('dacc_tahun', $year)
+                ->get();
+
+            if ($detailacc->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data Akun tidak ditemukan untuk bulan dan tahun yang dipilih',
+                ], 404);
+            }
+    
+            $formattedData = $detailacc->map(function ($account) {
+                $platformData = [];
+                foreach ($account->platforms as $platform) {
+                    $platformData[$platform->dpl_platform] = [
+                        'dpl_id' => $platform->dpl_id,
+                        'dpl_total_konten' => $platform->dpl_total_konten,
+                        'dpl_pengikut' => $platform->dpl_pengikut,
+                    ];
+                }
+    
+                return [
+                    'dacc_id' => $account->dacc_id,
+                    'dacc_bulan' => $account->dacc_bulan,
+                    'dacc_tahun' => $account->dacc_tahun,
+                    'created_at' => $account->created_at,
+                    'updated_at' => $account->updated_at,
+                ] + $platformData;
+            });
+    
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mendapatkan data Akun',
+                'data' => [
+                    'detail_akun' => $formattedData
+                ]
+            ], 200);
+    
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mendapatkan data akun',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getByDacc(Request $request)
+    {
+        try {
+            $dacc_id = $request->query('dacc_id');
+
+            $detailacc = DetailAccount::with('platforms')
+                ->where('dacc_id', $dacc_id)
+                ->first();
+
+            if (!$detailacc) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data Akun tidak ditemukan untuk ID yang diberikan',
+                ], 404);
+            }
+    
+            $platformData = [];
+            foreach ($detailacc->platforms as $platform) {
+                $platformData[$platform->dpl_platform] = [
+                    'dpl_id' => $platform->dpl_id,
+                    'dpl_total_konten' => $platform->dpl_total_konten,
+                    'dpl_pengikut' => $platform->dpl_pengikut,
+                ];
+            }
+    
+            $formattedData = [
+                'dacc_id' => $detailacc->dacc_id,
+                'dacc_bulan' => $detailacc->dacc_bulan,
+                'dacc_tahun' => $detailacc->dacc_tahun,
+                'created_at' => $detailacc->created_at,
+                'updated_at' => $detailacc->updated_at,
+            ] + $platformData;
+    
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mendapatkan data Akun',
+                'data' => [
+                    'detail_akun' => $formattedData
+                ]
+            ], 200);
+    
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mendapatkan data akun',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function createDetailAccount(Request $request) {
         $validator = Validator::make($request->all(), [
             'dacc_bulan' => 'numeric|required',
@@ -1086,6 +1190,38 @@ class ApiController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Gagal menambahkan data',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateDetailPlatform(Request $request, $id) {
+        $detailacc = DetailPlatform::where('dacc_id', $id)->first();
+        if(!$detailacc) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak ditemukan',
+            ], 404);
+        }
+        try {
+            $updateData = [
+                'dpl_total_konten' => $request->dpl_total_konten,
+                'dpl_pengikut' => $request->dpl_pengikut,
+            ];
+
+            $detailacc->update($updateData);
+    
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mengupdate Detail Akun',
+                'data' => [
+                    'detail_akun' => $detailacc
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mengupdate detail akun',
                 'error' => $e->getMessage()
             ], 500);
         }

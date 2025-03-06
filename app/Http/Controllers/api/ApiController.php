@@ -10,13 +10,51 @@ use App\Models\Host;
 use App\Models\IdeKontenFoto;
 use App\Models\IdeKontenVideo;
 use App\Models\InspiringPeople;
+use App\Models\LinkUploadPlanner;
+use App\Models\OnlinePlanner;
 use App\Models\Pembicara;
 use App\Models\Podcast;
 use App\Models\Quotes;
+use App\Models\User;
 use Illuminate\Support\Facades\Validator;
 
 class ApiController extends Controller
 {
+    //Module user
+    public function register(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'user_name' => 'required|string',
+            'username' => 'required|string|unique:users',
+            'password' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'data' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = User::create([
+            'user_name' => $request->user_name,
+            'username' => $request->username,
+            'password' => bcrypt($request->password), // Hash password
+        ]);
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User registered successfully',
+            'data' => [
+                'user' => $user,
+                'token' => $token,
+            ],
+        ], 201);
+    }
+    //End module
+
     //Module podcast
     public function getPodcast() {
         try {
@@ -992,8 +1030,117 @@ class ApiController extends Controller
         }
     }    
 
-    public function getByMonthYear(Request $request)
-    {
+    public function getSortDetailAccount(){
+    try {
+        $detailacc = DetailAccount::with('platforms')
+            ->get()
+            ->sortByDesc(function ($account) {
+                return max(strtotime($account->created_at), strtotime($account->updated_at));
+            });
+
+        if ($detailacc->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data Akun tidak ditemukan',
+            ], 404);
+        }
+
+        // Inisialisasi total konten untuk setiap platform
+        $totalKontenPerPlatform = [
+            'website' => 0,
+            'instagram' => 0,
+            'twitter' => 0,
+            'facebook' => 0,
+            'youtube' => 0,
+            'tiktok' => 0,
+        ];
+
+        // Array untuk melacak entri pengikut terbaru untuk setiap platform
+        $latestFollowers = [
+            'website' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
+            'instagram' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
+            'twitter' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
+            'facebook' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
+            'youtube' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
+            'tiktok' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
+        ];
+
+        $formattedData = $detailacc->map(function ($account) use (&$totalKontenPerPlatform, &$latestFollowers) {
+            $platformData = [];
+            foreach ($account->platforms as $platform) {
+                $platformName = $platform->dpl_platform;
+                $platformData[$platformName] = [
+                    'dpl_id' => $platform->dpl_id,
+                    'dpl_total_konten' => $platform->dpl_total_konten,
+                    'dpl_pengikut' => $platform->dpl_pengikut,
+                ];
+
+                // Akumulasi jumlah total konten berdasarkan platform
+                if (isset($totalKontenPerPlatform[$platformName])) {
+                    $totalKontenPerPlatform[$platformName] += (int) $platform->dpl_total_konten;
+                }
+
+                // Update jumlah pengikut terbaru berdasarkan tahun dan bulan
+                $isNewer = false;
+                
+                // Jika belum ada data
+                if ($latestFollowers[$platformName]['date'] === null) {
+                    $isNewer = true;
+                }
+                // Jika tahun lebih baru
+                elseif ($account->dacc_tahun > $latestFollowers[$platformName]['year']) {
+                    $isNewer = true;
+                }
+                // Jika tahun sama tapi bulan lebih baru
+                elseif ($account->dacc_tahun == $latestFollowers[$platformName]['year'] && 
+                       $account->dacc_bulan > $latestFollowers[$platformName]['month']) {
+                    $isNewer = true;
+                }
+
+                if ($isNewer) {
+                    $latestFollowers[$platformName] = [
+                        'date' => max(strtotime($account->created_at), strtotime($account->updated_at)),
+                        'count' => (int) $platform->dpl_pengikut,
+                        'year' => $account->dacc_tahun,
+                        'month' => $account->dacc_bulan
+                    ];
+                }
+            }
+
+            return [
+                'dacc_id' => $account->dacc_id,
+                'dacc_bulan' => $account->dacc_bulan,
+                'dacc_tahun' => $account->dacc_tahun,
+                'created_at' => $account->created_at,
+                'updated_at' => $account->updated_at,
+            ] + $platformData; // Menggabungkan platform data langsung ke akun
+        });
+
+        // Extract pengikut terbaru untuk response
+        $latestFollowersCount = array_map(function($platform) {
+            return $platform['count'];
+        }, $latestFollowers);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Berhasil mendapatkan data Akun',
+            'data' => [
+                'detail_akun' => $formattedData,
+                'total_konten_per_platform' => $totalKontenPerPlatform,
+                'latest_followers' => $latestFollowersCount, // Menambahkan jumlah pengikut terbaru
+            ]
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Gagal mendapatkan data akun',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+    public function getByMonthYear(Request $request){
         try {
             $month = $request->query('month');
             $year = $request->query('year');
@@ -1046,8 +1193,7 @@ class ApiController extends Controller
         }
     }
 
-    public function getByDacc(Request $request)
-    {
+    public function getByDacc(Request $request){
         try {
             $dacc_id = $request->query('dacc_id');
 
@@ -1196,32 +1342,145 @@ class ApiController extends Controller
     }
 
     public function updateDetailPlatform(Request $request, $id) {
-        $detailacc = DetailPlatform::where('dacc_id', $id)->first();
-        if(!$detailacc) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Data tidak ditemukan',
-            ], 404);
-        }
+        $detailPlatform = DetailPlatform::findOrFail($id);
+    
         try {
             $updateData = [
                 'dpl_total_konten' => $request->dpl_total_konten,
                 'dpl_pengikut' => $request->dpl_pengikut,
             ];
-
-            $detailacc->update($updateData);
+    
+            $detailPlatform->update($updateData);
     
             return response()->json([
                 'status' => true,
-                'message' => 'Berhasil mengupdate Detail Akun',
+                'message' => 'Berhasil mengupdate Detail Platform',
                 'data' => [
-                    'detail_akun' => $detailacc
+                    'detail_platform' => $detailPlatform
                 ]
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Gagal mengupdate detail akun',
+                'message' => 'Gagal mengupdate detail platform',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deleteDetailPlatform($id) {
+        try {
+            $detailPlatform = DetailPlatform::findOrFail($id);
+            $detailPlatform->delete();
+    
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil menghapus Detail Platform'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menghapus detail platform',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    //End Module
+
+    //Module Content Planner
+    public function getOnlineContentPlanner() {
+
+    }
+
+    public function createLinkOnlinePlanner(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'lup_instagram' => 'url',
+            'lup_facebook' => 'url',
+            'lup_twitter' => 'url',
+            'lup_youtube' => 'url',
+            'lup_website' => 'url',
+            'lup_tiktok' => 'url',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak valid',
+                'error' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $linkupload = LinkUploadPlanner::create([
+                'lup_instagram' => $request->lup_instagram,
+                'lup_facebook' => $request->lup_facebook,
+                'lup_twitter' => $request->lup_twitter,
+                'lup_youtube' => $request->lup_youtube,
+                'lup_website' => $request->lup_website,
+                'lup_tiktok' => $request->lup_tiktok,
+            ]);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil membuat link',
+                'data' => [
+                    'link_uplaod' => $linkupload
+                ]
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal membuat link',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function createOnlineContentPlanner(Request $request){
+        $validator = Validator::make($request->all(), [
+            'onp_tanggal' => 'date|required',
+            'onp_hari' => 'string|required',
+            'onp_topik_konten' => 'string|required',
+            'user_id' => 'required|exists:users,user_id',
+            'onp_platform' => 'string|required|in:website,instagram,twitter,facebook,youtube,tiktok',
+            'onp_checkpoint' => 'string|required|in:jayaridho,gilang,chris,winny',
+            'lup_id' => 'required|exists:link_upload_planners,lup_id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak valid',
+                'error' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $onlineplanner = OnlinePlanner::create([
+                'onp_tanggal' => $request->onp_tanggal,
+                'onp_hari' => $request->onp_hari,
+                'onp_topik_konten' => $request->onp_topik_konten,
+                'user_id' => $request->user_id,
+                'onp_platform' => $request->onp_platform,
+                'onp_checkpoint' => $request->onp_checkpoint,
+                'lup_id' => $request->lup_id,
+            ]);
+
+            // Ambil data termasuk relasi
+            $onlineplanner = OnlinePlanner::with([
+                'user:user_id,user_name,username',
+                'linkUploadPlanner:lup_id,lup_instagram,lup_twitter,lup_facebook,lup_website,lup_tiktok,lup_youtube'
+            ])->find($onlineplanner->onp_id); // Pakai `onp_id` sebagai ID
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil membuat Online Content Planner',
+                'data' => $onlineplanner
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal membuat Online Content Planner',
                 'error' => $e->getMessage()
             ], 500);
         }

@@ -3,6 +3,9 @@
 use App\Http\Controllers\api\ApiController;
 use Illuminate\Support\Facades\Route;
 
+//User route
+Route::post('/register', [ApiController::class, 'register']);
+
 //Ide Konten Foto route
 Route::get('/idekontenfoto', [ApiController::class, 'getIdeKontenFoto']);
 Route::post('/idekontenfoto/create', [ApiController::class, 'createIdeKontenFoto']);
@@ -50,8 +53,14 @@ Route::delete('/inspiringpeople/delete/{id}', [ApiController::class, 'deleteInsp
 
 //Detail Account route
 Route::get('/detailaccount', [ApiController::class, 'getDetailAccount']);
+Route::get('/sortdetailaccount', [ApiController::class, 'getSortDetailAccount']);
 Route::get('/detailaccount/get-by-month-year', [ApiController::class, 'getByMonthYear']);
 Route::get('/detailplatform/get-by-dacc', [ApiController::class, 'getByDacc']);
 Route::post('/detailaccount/create', [ApiController::class, 'createDetailAccount']);
 Route::post('/detailplatform/create', [ApiController::class, 'createPlatform']);
 Route::put('/detailplatform/update/{id}', [ApiController::class, 'updateDetailPlatform']);
+Route::delete('/detailplatform/delete/{id}', [ApiController::class, 'deleteDetailPlatform']);
+
+//Online Content Planner
+Route::post('/uploadcontent/create', [ApiController::class, 'createLinkOnlinePlanner']);
+Route::post('onlineplanner/create', [ApiController::class, 'createOnlineContentPlanner']);

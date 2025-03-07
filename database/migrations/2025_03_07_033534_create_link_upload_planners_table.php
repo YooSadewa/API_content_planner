@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('link_upload_planners', function (Blueprint $table) {
             $table->id('lup_id');
+            $table->unsignedBigInteger('onp_id');
             $table->text('lup_instagram')->nullable();
             $table->text('lup_facebook')->nullable();
             $table->text('lup_twitter')->nullable();
@@ -20,6 +21,8 @@ return new class extends Migration
             $table->text('lup_website')->nullable();
             $table->text('lup_tiktok')->nullable();
             $table->timestamps();
+
+            $table->foreign('onp_id')->references('onp_id')->on('online_planners')->onDelete('cascade');
         });
     }
 

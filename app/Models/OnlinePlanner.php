@@ -14,18 +14,12 @@ class OnlinePlanner extends Model
 
     protected $fillable = [
         'onp_tanggal', 'onp_hari', 'onp_topik_konten',
-        'user_id', 'onp_platform', 'onp_checkpoint', 'lup_id'
+        'onp_admin', 'onp_platform', 'onp_checkpoint'
     ];
-
-    // Relasi ke tabel Users
-    public function user()
-    {
-        return $this->belongsTo(User::class, 'user_id', 'user_id');
-    }
 
     // Relasi ke tabel LinkUploadPlanner
     public function linkUploadPlanner()
     {
-        return $this->belongsTo(LinkUploadPlanner::class, 'lup_id', 'lup_id');
+        return $this->belongsTo(LinkUploadPlanner::class, 'onp_id', 'onp_id');
     }
 }

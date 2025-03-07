@@ -10,6 +10,7 @@ class LinkUploadPlanner extends Model
     protected $table = 'link_upload_planners';
     protected $primaryKey = 'lup_id';
     protected $fillable = [
+        'onp_id',
         'lup_instagram',
         'lup_facebook',
         'lup_twitter',
@@ -20,6 +21,6 @@ class LinkUploadPlanner extends Model
 
     public function platforms(): BelongsTo
     {
-        return $this->belongsTo(OnlinePlanner::class, 'lup_id', 'lup_id');
+        return $this->belongsTo(OnlinePlanner::class, 'onp_id', 'onp_id');
     }
 }

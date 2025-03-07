@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 //User route
 Route::post('/register', [ApiController::class, 'register']);
+Route::post('/login', [ApiController::class, 'login']);
 
 //Ide Konten Foto route
 Route::get('/idekontenfoto', [ApiController::class, 'getIdeKontenFoto']);
@@ -62,5 +63,8 @@ Route::put('/detailplatform/update/{id}', [ApiController::class, 'updateDetailPl
 Route::delete('/detailplatform/delete/{id}', [ApiController::class, 'deleteDetailPlatform']);
 
 //Online Content Planner
+Route::get('/onlinecontentplanner', [ApiController::class, 'getOnlineContentPlanner']);
+Route::get('/onlinecontentplanner/scheduled', [ApiController::class, 'getPlannersWithoutLinks']);
 Route::post('/uploadcontent/create', [ApiController::class, 'createLinkOnlinePlanner']);
-Route::post('onlineplanner/create', [ApiController::class, 'createOnlineContentPlanner']);
+Route::post('/onlineplanner/create', [ApiController::class, 'createOnlineContentPlanner']);
+Route::put('/uploadcontent/update/{id}', [ApiController::class, 'updateLinkOnlinePlanner']);

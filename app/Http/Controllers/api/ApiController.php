@@ -6,16 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\DetailAccount;
 use App\Models\DetailPlatform;
 use Illuminate\Http\Request;
-use App\Models\Host;
 use App\Models\IdeKontenFoto;
 use App\Models\IdeKontenVideo;
 use App\Models\InspiringPeople;
 use App\Models\LinkUploadPlanner;
 use App\Models\OnlinePlanner;
-use App\Models\Pembicara;
 use App\Models\Podcast;
 use App\Models\Quotes;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
 class ApiController extends Controller
@@ -52,6 +52,40 @@ class ApiController extends Controller
                 'token' => $token,
             ],
         ], 201);
+    }
+
+    public function login(Request $request){
+        $validator = Validator::make($request->all(), [
+            'username' => 'string|required',
+            'password' => 'string|required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'data' => $validator->errors(),
+            ], 422);
+        }
+
+        $admin = User::where('username', $request->username)->first();
+
+        if(!$admin || !Hash::check($request->password, $admin->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid credentials',
+            ], 401);
+        }
+
+        Auth::login($admin);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Admin logged in successfully',
+            'data' => [
+                'admin' => $admin,
+                'token' => $admin->createToken('auth_token')->plainTextToken,
+            ],
+        ], 200);
     }
     //End module
 
@@ -1030,115 +1064,115 @@ class ApiController extends Controller
         }
     }    
 
-    public function getSortDetailAccount(){
-    try {
-        $detailacc = DetailAccount::with('platforms')
-            ->get()
-            ->sortByDesc(function ($account) {
-                return max(strtotime($account->created_at), strtotime($account->updated_at));
-            });
+    public function getSortDetailAccount() {
+        try {
+            $detailacc = DetailAccount::with('platforms')
+                ->get()
+                ->sortByDesc(function ($account) {
+                    return max(strtotime($account->created_at), strtotime($account->updated_at));
+                });
 
-        if ($detailacc->isEmpty()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Data Akun tidak ditemukan',
-            ], 404);
-        }
-
-        // Inisialisasi total konten untuk setiap platform
-        $totalKontenPerPlatform = [
-            'website' => 0,
-            'instagram' => 0,
-            'twitter' => 0,
-            'facebook' => 0,
-            'youtube' => 0,
-            'tiktok' => 0,
-        ];
-
-        // Array untuk melacak entri pengikut terbaru untuk setiap platform
-        $latestFollowers = [
-            'website' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
-            'instagram' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
-            'twitter' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
-            'facebook' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
-            'youtube' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
-            'tiktok' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
-        ];
-
-        $formattedData = $detailacc->map(function ($account) use (&$totalKontenPerPlatform, &$latestFollowers) {
-            $platformData = [];
-            foreach ($account->platforms as $platform) {
-                $platformName = $platform->dpl_platform;
-                $platformData[$platformName] = [
-                    'dpl_id' => $platform->dpl_id,
-                    'dpl_total_konten' => $platform->dpl_total_konten,
-                    'dpl_pengikut' => $platform->dpl_pengikut,
-                ];
-
-                // Akumulasi jumlah total konten berdasarkan platform
-                if (isset($totalKontenPerPlatform[$platformName])) {
-                    $totalKontenPerPlatform[$platformName] += (int) $platform->dpl_total_konten;
-                }
-
-                // Update jumlah pengikut terbaru berdasarkan tahun dan bulan
-                $isNewer = false;
-                
-                // Jika belum ada data
-                if ($latestFollowers[$platformName]['date'] === null) {
-                    $isNewer = true;
-                }
-                // Jika tahun lebih baru
-                elseif ($account->dacc_tahun > $latestFollowers[$platformName]['year']) {
-                    $isNewer = true;
-                }
-                // Jika tahun sama tapi bulan lebih baru
-                elseif ($account->dacc_tahun == $latestFollowers[$platformName]['year'] && 
-                       $account->dacc_bulan > $latestFollowers[$platformName]['month']) {
-                    $isNewer = true;
-                }
-
-                if ($isNewer) {
-                    $latestFollowers[$platformName] = [
-                        'date' => max(strtotime($account->created_at), strtotime($account->updated_at)),
-                        'count' => (int) $platform->dpl_pengikut,
-                        'year' => $account->dacc_tahun,
-                        'month' => $account->dacc_bulan
-                    ];
-                }
+            if ($detailacc->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data Akun tidak ditemukan',
+                ], 404);
             }
 
-            return [
-                'dacc_id' => $account->dacc_id,
-                'dacc_bulan' => $account->dacc_bulan,
-                'dacc_tahun' => $account->dacc_tahun,
-                'created_at' => $account->created_at,
-                'updated_at' => $account->updated_at,
-            ] + $platformData; // Menggabungkan platform data langsung ke akun
-        });
+            // Inisialisasi total konten untuk setiap platform
+            $totalKontenPerPlatform = [
+                'website' => 0,
+                'instagram' => 0,
+                'twitter' => 0,
+                'facebook' => 0,
+                'youtube' => 0,
+                'tiktok' => 0,
+            ];
 
-        // Extract pengikut terbaru untuk response
-        $latestFollowersCount = array_map(function($platform) {
-            return $platform['count'];
-        }, $latestFollowers);
+            // Array untuk melacak entri pengikut terbaru untuk setiap platform
+            $latestFollowers = [
+                'website' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
+                'instagram' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
+                'twitter' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
+                'facebook' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
+                'youtube' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
+                'tiktok' => ['date' => null, 'count' => 0, 'year' => 0, 'month' => 0],
+            ];
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Berhasil mendapatkan data Akun',
-            'data' => [
-                'detail_akun' => $formattedData,
-                'total_konten_per_platform' => $totalKontenPerPlatform,
-                'latest_followers' => $latestFollowersCount, // Menambahkan jumlah pengikut terbaru
-            ]
-        ], 200);
+            $formattedData = $detailacc->map(function ($account) use (&$totalKontenPerPlatform, &$latestFollowers) {
+                $platformData = [];
+                foreach ($account->platforms as $platform) {
+                    $platformName = $platform->dpl_platform;
+                    $platformData[$platformName] = [
+                        'dpl_id' => $platform->dpl_id,
+                        'dpl_total_konten' => $platform->dpl_total_konten,
+                        'dpl_pengikut' => $platform->dpl_pengikut,
+                    ];
 
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => false,
-            'message' => 'Gagal mendapatkan data akun',
-            'error' => $e->getMessage()
-        ], 500);
+                    // Akumulasi jumlah total konten berdasarkan platform
+                    if (isset($totalKontenPerPlatform[$platformName])) {
+                        $totalKontenPerPlatform[$platformName] += (int) $platform->dpl_total_konten;
+                    }
+
+                    // Update jumlah pengikut terbaru berdasarkan tahun dan bulan
+                    $isNewer = false;
+                    
+                    // Jika belum ada data
+                    if ($latestFollowers[$platformName]['date'] === null) {
+                        $isNewer = true;
+                    }
+                    // Jika tahun lebih baru
+                    elseif ($account->dacc_tahun > $latestFollowers[$platformName]['year']) {
+                        $isNewer = true;
+                    }
+                    // Jika tahun sama tapi bulan lebih baru
+                    elseif ($account->dacc_tahun == $latestFollowers[$platformName]['year'] && 
+                        $account->dacc_bulan > $latestFollowers[$platformName]['month']) {
+                        $isNewer = true;
+                    }
+
+                    if ($isNewer) {
+                        $latestFollowers[$platformName] = [
+                            'date' => max(strtotime($account->created_at), strtotime($account->updated_at)),
+                            'count' => (int) $platform->dpl_pengikut,
+                            'year' => $account->dacc_tahun,
+                            'month' => $account->dacc_bulan
+                        ];
+                    }
+                }
+
+                return [
+                    'dacc_id' => $account->dacc_id,
+                    'dacc_bulan' => $account->dacc_bulan,
+                    'dacc_tahun' => $account->dacc_tahun,
+                    'created_at' => $account->created_at,
+                    'updated_at' => $account->updated_at,
+                ] + $platformData; // Menggabungkan platform data langsung ke akun
+            });
+
+            // Extract pengikut terbaru untuk response
+            $latestFollowersCount = array_map(function($platform) {
+                return $platform['count'];
+            }, $latestFollowers);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mendapatkan data Akun',
+                'data' => [
+                    'detail_akun' => $formattedData,
+                    'total_konten_per_platform' => $totalKontenPerPlatform,
+                    'latest_followers' => $latestFollowersCount, // Menambahkan jumlah pengikut terbaru
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mendapatkan data akun',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
-}
 
     public function getByMonthYear(Request $request){
         try {
@@ -1389,11 +1423,128 @@ class ApiController extends Controller
 
     //Module Content Planner
     public function getOnlineContentPlanner() {
+        try {
+            $onlinePlanner = OnlinePlanner::with('linkUploadPlanner')->get();
+    
+            if ($onlinePlanner->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data Planner tidak ditemukan',
+                ], 404);
+            }
+    
+            $formattedData = $onlinePlanner->map(function ($planner) {
+                $platformData = [];
+                $hasLinks = false;
+                
+                // Check if linkUploadPlanner relation exists
+                if ($planner->linkUploadPlanner) {
+                    $platforms = [
+                        'instagram' => $planner->linkUploadPlanner->lup_instagram,
+                        'facebook' => $planner->linkUploadPlanner->lup_facebook,
+                        'twitter' => $planner->linkUploadPlanner->lup_twitter,
+                        'youtube' => $planner->linkUploadPlanner->lup_youtube,
+                        'website' => $planner->linkUploadPlanner->lup_website,
+                        'tiktok' => $planner->linkUploadPlanner->lup_tiktok,
+                    ];
+                    
+                    foreach ($platforms as $platform => $link) {
+                        if ($link) {
+                            $platformData[$platform] = [
+                                'link' => $link
+                            ];
+                            $hasLinks = true;
+                        }
+                    }
+                }
+    
+                return [
+                    'onp_id' => $planner->onp_id,
+                    'onp_tanggal' => $planner->onp_tanggal,
+                    'onp_hari' => $planner->onp_hari,
+                    'onp_topik_konten' => $planner->onp_topik_konten,
+                    'onp_admin' => $planner->onp_admin,
+                    'onp_platform' => $planner->onp_platform,
+                    'onp_checkpoint' => $planner->onp_checkpoint,
+                    'created_at' => $planner->created_at,
+                    'updated_at' => $planner->updated_at,
+                    'platforms' => $platformData,
+                    'has_links' => $hasLinks  // Tambahkan flag untuk sorting
+                ];
+            });
+    
+            // Sort berdasarkan has_links
+            $sortedData = $formattedData->sortBy('has_links')->values();
+            
+            // Hapus flag has_links dari hasil akhir (opsional)
+            $finalData = $sortedData->map(function($item) {
+                unset($item['has_links']);
+                return $item;
+            });
+    
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mendapatkan data Online Planner',
+                'data' => [
+                    'online_planners' => $finalData
+                ]
+            ], 200);
+    
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mendapatkan data Online Planner',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 
+    public function getPlannersWithoutLinks() {
+        try {
+            $onlinePlanners = OnlinePlanner::whereDoesntHave('linkUploadPlanner')->get();
+            
+            if ($onlinePlanners->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data Planner tanpa link tidak ditemukan',
+                ], 404);
+            }
+            
+            $formattedData = $onlinePlanners->map(function ($planner) {
+                return [
+                    'onp_id' => $planner->onp_id,
+                    'onp_tanggal' => $planner->onp_tanggal,
+                    'onp_hari' => $planner->onp_hari,
+                    'onp_topik_konten' => $planner->onp_topik_konten,
+                    'onp_admin' => $planner->onp_admin,
+                    'onp_platform' => $planner->onp_platform,
+                    'onp_checkpoint' => $planner->onp_checkpoint,
+                    'created_at' => $planner->created_at,
+                    'updated_at' => $planner->updated_at,
+                    'platforms' => [] // Empty platforms array
+                ];
+            });
+            
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mendapatkan data Online Planner tanpa link',
+                'data' => [
+                    'online_planners' => $formattedData
+                ]
+            ], 200);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mendapatkan data Online Planner tanpa link',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function createLinkOnlinePlanner(Request $request) {
         $validator = Validator::make($request->all(), [
+            'onp_id' => 'required|exists:online_planners,onp_id',
             'lup_instagram' => 'url',
             'lup_facebook' => 'url',
             'lup_twitter' => 'url',
@@ -1412,6 +1563,7 @@ class ApiController extends Controller
 
         try {
             $linkupload = LinkUploadPlanner::create([
+                'onp_id' => $request->onp_id,
                 'lup_instagram' => $request->lup_instagram,
                 'lup_facebook' => $request->lup_facebook,
                 'lup_twitter' => $request->lup_twitter,
@@ -1440,13 +1592,12 @@ class ApiController extends Controller
         $validator = Validator::make($request->all(), [
             'onp_tanggal' => 'date|required',
             'onp_hari' => 'string|required',
-            'onp_topik_konten' => 'string|required',
-            'user_id' => 'required|exists:users,user_id',
-            'onp_platform' => 'string|required|in:website,instagram,twitter,facebook,youtube,tiktok',
+            'onp_topik_konten' => 'string|required|unique:online_planners',
+            'onp_admin' => 'required|string',
+            'onp_platform' => 'string|required', // Remove the in:website,... constraint
             'onp_checkpoint' => 'string|required|in:jayaridho,gilang,chris,winny',
-            'lup_id' => 'required|exists:link_upload_planners,lup_id'
         ]);
-
+    
         if ($validator->fails()) {
             return response()->json([
                 'status' => false,
@@ -1454,24 +1605,31 @@ class ApiController extends Controller
                 'error' => $validator->errors()
             ], 400);
         }
-
+    
+        // Validate platform values manually
+        $allowedPlatforms = ['website', 'instagram', 'twitter', 'facebook', 'youtube', 'tiktok'];
+        $platforms = explode(',', strtolower($request->onp_platform));
+        
+        foreach ($platforms as $platform) {
+            if (!in_array($platform, $allowedPlatforms)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Platform tidak valid',
+                    'error' => 'Platform harus salah satu dari: ' . implode(', ', $allowedPlatforms)
+                ], 400);
+            }
+        }
+    
         try {
             $onlineplanner = OnlinePlanner::create([
                 'onp_tanggal' => $request->onp_tanggal,
                 'onp_hari' => $request->onp_hari,
                 'onp_topik_konten' => $request->onp_topik_konten,
-                'user_id' => $request->user_id,
-                'onp_platform' => $request->onp_platform,
-                'onp_checkpoint' => $request->onp_checkpoint,
-                'lup_id' => $request->lup_id,
+                'onp_admin' => $request->onp_admin,
+                'onp_platform' => strtolower($request->onp_platform),
+                'onp_checkpoint' => strtolower($request->onp_checkpoint),
             ]);
-
-            // Ambil data termasuk relasi
-            $onlineplanner = OnlinePlanner::with([
-                'user:user_id,user_name,username',
-                'linkUploadPlanner:lup_id,lup_instagram,lup_twitter,lup_facebook,lup_website,lup_tiktok,lup_youtube'
-            ])->find($onlineplanner->onp_id); // Pakai `onp_id` sebagai ID
-
+    
             return response()->json([
                 'status' => true,
                 'message' => 'Berhasil membuat Online Content Planner',
@@ -1481,6 +1639,59 @@ class ApiController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Gagal membuat Online Content Planner',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateLinkOnlinePlanner(Request $request, $id) {
+        $linkplanneronline = LinkUploadPlanner::where('lup_id', $id)->first();
+
+        if(!$linkplanneronline) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data link upload planner tidak ditemukan',
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'onp_id' => 'required|exists:online_planners,onp_id',
+            'lup_instagram' => 'url',
+            'lup_facebook' => 'url',
+            'lup_twitter' => 'url',
+            'lup_youtube' => 'url',
+            'lup_website' => 'url',
+            'lup_tiktok' => 'url',
+        ]);
+
+        if($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validator error',
+                'error' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $linkplanneronline->update([
+                'lup_instagram' => $request->lup_instagram,
+                'lup_facebook' => $request->lup_facebook,
+                'lup_twitter' => $request->lup_twitter,
+                'lup_youtube' => $request->lup_youtube,
+                'lup_website' => $request->lup_website,
+                'lup_tiktok' => $request->lup_tiktok,
+            ]);
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mengupdate data link upload planner',
+                'data' => [
+                    'link_upload' => $linkplanneronline
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mengupdate data link upload planner',
                 'error' => $e->getMessage()
             ], 500);
         }

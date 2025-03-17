@@ -15,6 +15,7 @@ use App\Models\Podcast;
 use App\Models\Quotes;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
@@ -1421,7 +1422,7 @@ class ApiController extends Controller
     }
     //End Module
 
-    //Module Content Planner
+    //Module Online Content Planner
     public function getOnlineContentPlanner() {
         try {
             $onlinePlanner = OnlinePlanner::with('linkUploadPlanner')->get();
@@ -1436,6 +1437,8 @@ class ApiController extends Controller
             $formattedData = $onlinePlanner->map(function ($planner) {
                 $platformData = [];
                 $hasLinks = false;
+                $requiredPlatforms = !empty($planner->onp_platform) ? explode(',', $planner->onp_platform) : [];
+                $fulfilledPlatforms = 0;
                 
                 // Check if linkUploadPlanner relation exists
                 if ($planner->linkUploadPlanner) {
@@ -1454,7 +1457,21 @@ class ApiController extends Controller
                                 'link' => $link
                             ];
                             $hasLinks = true;
+                            
+                            // Check if this platform is required and has a link
+                            if (in_array($platform, $requiredPlatforms)) {
+                                $fulfilledPlatforms++;
+                            }
                         }
+                    }
+                }
+                
+                // Calculate priority for sorting (0: no links, 1: partial fulfillment, 2: complete fulfillment)
+                $sortPriority = 0;
+                if ($hasLinks) {
+                    $sortPriority = 1; // Has some links
+                    if (count($requiredPlatforms) > 0 && $fulfilledPlatforms == count($requiredPlatforms)) {
+                        $sortPriority = 2; // Fully fulfilled all required platforms
                     }
                 }
     
@@ -1469,16 +1486,16 @@ class ApiController extends Controller
                     'created_at' => $planner->created_at,
                     'updated_at' => $planner->updated_at,
                     'platforms' => $platformData,
-                    'has_links' => $hasLinks  // Tambahkan flag untuk sorting
+                    'sort_priority' => $sortPriority  // Untuk sorting
                 ];
             });
     
-            // Sort berdasarkan has_links
-            $sortedData = $formattedData->sortBy('has_links')->values();
+            // Sort berdasarkan prioritas (0, 1, 2)
+            $sortedData = $formattedData->sortBy('sort_priority')->values();
             
-            // Hapus flag has_links dari hasil akhir (opsional)
+            // Hapus field sort_priority dari hasil akhir
             $finalData = $sortedData->map(function($item) {
-                unset($item['has_links']);
+                unset($item['sort_priority']);
                 return $item;
             });
     
@@ -1499,18 +1516,78 @@ class ApiController extends Controller
         }
     }
 
-    public function getPlannersWithoutLinks() {
+    public function getPlannersWithLinks() {
         try {
-            $onlinePlanners = OnlinePlanner::whereDoesntHave('linkUploadPlanner')->get();
+            $onlinePlanners = OnlinePlanner::whereHas('linkUploadPlanner')->with('linkUploadPlanner')->get();
             
             if ($onlinePlanners->isEmpty()) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'Data Planner tanpa link tidak ditemukan',
+                    'message' => 'Data Planner dengan link tidak ditemukan',
                 ], 404);
             }
             
-            $formattedData = $onlinePlanners->map(function ($planner) {
+            // Filter planner yang memiliki semua link sesuai onp_platform
+            $filteredPlanners = $onlinePlanners->filter(function ($planner) {
+                if (empty($planner->onp_platform)) {
+                    return false;
+                }
+                
+                $requiredPlatforms = explode(',', $planner->onp_platform);
+                
+                if (!$planner->linkUploadPlanner) {
+                    return false;
+                }
+                
+                $platforms = [
+                    'instagram' => $planner->linkUploadPlanner->lup_instagram,
+                    'facebook' => $planner->linkUploadPlanner->lup_facebook,
+                    'twitter' => $planner->linkUploadPlanner->lup_twitter,
+                    'youtube' => $planner->linkUploadPlanner->lup_youtube,
+                    'website' => $planner->linkUploadPlanner->lup_website,
+                    'tiktok' => $planner->linkUploadPlanner->lup_tiktok,
+                ];
+                
+                // Cek apakah semua platform yang dibutuhkan memiliki link
+                foreach ($requiredPlatforms as $platform) {
+                    $platform = trim($platform); // Hapus spasi jika ada
+                    if (!isset($platforms[$platform]) || empty($platforms[$platform])) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+            
+            if ($filteredPlanners->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Tidak ada planner yang memiliki semua link sesuai onp_platform',
+                ], 404);
+            }
+            
+            $formattedData = $filteredPlanners->map(function ($planner) {
+                $platformData = [];
+                
+                if ($planner->linkUploadPlanner) {
+                    $platforms = [
+                        'instagram' => $planner->linkUploadPlanner->lup_instagram,
+                        'facebook' => $planner->linkUploadPlanner->lup_facebook,
+                        'twitter' => $planner->linkUploadPlanner->lup_twitter,
+                        'youtube' => $planner->linkUploadPlanner->lup_youtube,
+                        'website' => $planner->linkUploadPlanner->lup_website,
+                        'tiktok' => $planner->linkUploadPlanner->lup_tiktok,
+                    ];
+                    
+                    foreach ($platforms as $platform => $link) {
+                        if ($link) {
+                            $platformData[$platform] = [
+                                'link' => $link
+                            ];
+                        }
+                    }
+                }
+                
                 return [
                     'onp_id' => $planner->onp_id,
                     'onp_tanggal' => $planner->onp_tanggal,
@@ -1521,15 +1598,127 @@ class ApiController extends Controller
                     'onp_checkpoint' => $planner->onp_checkpoint,
                     'created_at' => $planner->created_at,
                     'updated_at' => $planner->updated_at,
-                    'platforms' => [] // Empty platforms array
+                    'platforms' => $platformData
                 ];
+            })->values(); // Reset array keys
+            
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mendapatkan data Online Planner dengan semua link sesuai platform',
+                'data' => [
+                    'online_planners' => $formattedData
+                ]
+            ], 200);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mendapatkan data Online Planner dengan link',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getPlannersWithoutLinks() {
+        try {
+            // Ambil semua planner
+            $allPlanners = OnlinePlanner::with('linkUploadPlanner')->get();
+            
+            if ($allPlanners->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data Planner tidak ditemukan',
+                ], 404);
+            }
+            
+            $formattedData = $allPlanners->map(function ($planner) {
+                $platformData = [];
+                $priority = 0; // Prioritas: 0 = tidak ada link sama sekali, 1 = link belum lengkap
+                
+                // Planner dengan linkUploadPlanner
+                if ($planner->linkUploadPlanner) {
+                    $requiredPlatforms = !empty($planner->onp_platform) ? explode(',', $planner->onp_platform) : [];
+                    
+                    $platforms = [
+                        'instagram' => $planner->linkUploadPlanner->lup_instagram,
+                        'facebook' => $planner->linkUploadPlanner->lup_facebook,
+                        'twitter' => $planner->linkUploadPlanner->lup_twitter,
+                        'youtube' => $planner->linkUploadPlanner->lup_youtube,
+                        'website' => $planner->linkUploadPlanner->lup_website,
+                        'tiktok' => $planner->linkUploadPlanner->lup_tiktok,
+                    ];
+                    
+                    foreach ($platforms as $platform => $link) {
+                        if ($link) {
+                            $platformData[$platform] = [
+                                'link' => $link
+                            ];
+                        }
+                    }
+                    
+                    // Cek apakah semua platform yang dibutuhkan memiliki link
+                    $isComplete = true;
+                    if (!empty($requiredPlatforms)) {
+                        foreach ($requiredPlatforms as $platform) {
+                            $platform = trim($platform);
+                            if (!isset($platforms[$platform]) || empty($platforms[$platform])) {
+                                $isComplete = false;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Jika semua lengkap, ini bukan planner yang kita cari
+                    if ($isComplete && !empty($requiredPlatforms)) {
+                        $priority = 2; // Lengkap
+                    } else if (!empty($platformData)) {
+                        $priority = 1; // Tidak lengkap tapi sudah ada beberapa link
+                    } else {
+                        $priority = 0; // Tidak ada link sama sekali
+                    }
+                }
+                
+                return [
+                    'onp_id' => $planner->onp_id,
+                    'onp_tanggal' => $planner->onp_tanggal,
+                    'onp_hari' => $planner->onp_hari,
+                    'onp_topik_konten' => $planner->onp_topik_konten,
+                    'onp_admin' => $planner->onp_admin,
+                    'onp_platform' => $planner->onp_platform,
+                    'onp_checkpoint' => $planner->onp_checkpoint,
+                    'created_at' => $planner->created_at,
+                    'updated_at' => $planner->updated_at,
+                    'platforms' => $platformData,
+                    'priority' => $priority
+                ];
+            });
+            
+            // Filter hanya yang priority 0 atau 1 (tidak ada link atau tidak lengkap)
+            $filteredData = $formattedData->filter(function ($item) {
+                return $item['priority'] < 2;
+            });
+            
+            if ($filteredData->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Tidak ada data Planner tanpa link atau dengan link belum lengkap',
+                ], 404);
+            }
+            
+            // Urutkan berdasarkan priority (0 = tidak ada link di atas, 1 = ada link tapi tidak lengkap di bawah)
+            $sortedData = $filteredData->sortBy('priority')->values();
+            
+            // Hapus field priority dari output final
+            $finalData = $sortedData->map(function ($item) {
+                unset($item['priority']);
+                return $item;
             });
             
             return response()->json([
                 'status' => true,
-                'message' => 'Berhasil mendapatkan data Online Planner tanpa link',
+                'message' => 'Berhasil mendapatkan data Online Planner tanpa link atau dengan link belum lengkap',
                 'data' => [
-                    'online_planners' => $formattedData
+                    'online_planners' => $finalData
                 ]
             ], 200);
             
@@ -1542,62 +1731,44 @@ class ApiController extends Controller
         }
     }
 
-    public function createLinkOnlinePlanner(Request $request) {
-        $validator = Validator::make($request->all(), [
-            'onp_id' => 'required|exists:online_planners,onp_id',
-            'lup_instagram' => 'url',
-            'lup_facebook' => 'url',
-            'lup_twitter' => 'url',
-            'lup_youtube' => 'url',
-            'lup_website' => 'url',
-            'lup_tiktok' => 'url',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Data tidak valid',
-                'error' => $validator->errors()
-            ], 400);
-        }
-
+    public function getLinkUploadPlannerByOnpId($onp_id) {
         try {
-            $linkupload = LinkUploadPlanner::create([
-                'onp_id' => $request->onp_id,
-                'lup_instagram' => $request->lup_instagram,
-                'lup_facebook' => $request->lup_facebook,
-                'lup_twitter' => $request->lup_twitter,
-                'lup_youtube' => $request->lup_youtube,
-                'lup_website' => $request->lup_website,
-                'lup_tiktok' => $request->lup_tiktok,
-            ]);
-
+            // Cari data LinkUploadPlanner berdasarkan onp_id
+            $linkUploadPlanner = LinkUploadPlanner::where('onp_id', $onp_id)->first();
+            
+            if (!$linkUploadPlanner) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Link Upload Planner tidak ditemukan untuk Online Content Planner ini',
+                ], 404);
+            }
+            
             return response()->json([
                 'status' => true,
-                'message' => 'Berhasil membuat link',
+                'message' => 'Berhasil mendapatkan Link Upload Planner',
                 'data' => [
-                    'link_uplaod' => $linkupload
+                    'linkUploadPlanner' => $linkUploadPlanner,
                 ]
-            ], 201);
+            ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Gagal membuat link',
+                'message' => 'Gagal mendapatkan Link Upload Planner',
                 'error' => $e->getMessage()
             ], 500);
         }
     }
-
-    public function createOnlineContentPlanner(Request $request){
+    
+    public function createOnlineContentPlanner(Request $request) {
         $validator = Validator::make($request->all(), [
             'onp_tanggal' => 'date|required',
             'onp_hari' => 'string|required',
             'onp_topik_konten' => 'string|required|unique:online_planners',
             'onp_admin' => 'required|string',
-            'onp_platform' => 'string|required', // Remove the in:website,... constraint
+            'onp_platform' => 'string|required', 
             'onp_checkpoint' => 'string|required|in:jayaridho,gilang,chris,winny',
         ]);
-    
+        
         if ($validator->fails()) {
             return response()->json([
                 'status' => false,
@@ -1605,7 +1776,7 @@ class ApiController extends Controller
                 'error' => $validator->errors()
             ], 400);
         }
-    
+        
         // Validate platform values manually
         $allowedPlatforms = ['website', 'instagram', 'twitter', 'facebook', 'youtube', 'tiktok'];
         $platforms = explode(',', strtolower($request->onp_platform));
@@ -1619,7 +1790,7 @@ class ApiController extends Controller
                 ], 400);
             }
         }
-    
+        
         try {
             $onlineplanner = OnlinePlanner::create([
                 'onp_tanggal' => $request->onp_tanggal,
@@ -1629,11 +1800,26 @@ class ApiController extends Controller
                 'onp_platform' => strtolower($request->onp_platform),
                 'onp_checkpoint' => strtolower($request->onp_checkpoint),
             ]);
-    
+            
+            $linkUploadData = [
+                'onp_id' => $onlineplanner->onp_id,
+                'lup_instagram' => null,
+                'lup_facebook' => null,
+                'lup_twitter' => null,
+                'lup_youtube' => null,
+                'lup_website' => null,
+                'lup_tiktok' => null,
+            ];
+            
+            // Buat entri LinkUploadPlanner
+            $linkUploadPlanner = LinkUploadPlanner::create($linkUploadData);
+            
             return response()->json([
                 'status' => true,
                 'message' => 'Berhasil membuat Online Content Planner',
-                'data' => $onlineplanner
+                'data' => [
+                    'onlineplanner' => $onlineplanner,
+                ]
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
@@ -1644,36 +1830,34 @@ class ApiController extends Controller
         }
     }
 
-    public function updateLinkOnlinePlanner(Request $request, $id) {
-        $linkplanneronline = LinkUploadPlanner::where('lup_id', $id)->first();
-
-        if(!$linkplanneronline) {
+    public function uploadLinkOnlinePlanner(Request $request, $onp_id) {
+        $linkupload = LinkUploadPlanner::where('onp_id', $onp_id)->first();
+        if(!$linkupload) {
             return response()->json([
                 'status' => false,
-                'message' => 'Data link upload planner tidak ditemukan',
+                'message' => 'Link Upload Planner tidak ditemukan',
             ], 404);
         }
 
         $validator = Validator::make($request->all(), [
-            'onp_id' => 'required|exists:online_planners,onp_id',
-            'lup_instagram' => 'url',
-            'lup_facebook' => 'url',
-            'lup_twitter' => 'url',
-            'lup_youtube' => 'url',
-            'lup_website' => 'url',
-            'lup_tiktok' => 'url',
+            'lup_instagram' => 'nullable|url',
+            'lup_facebook' => 'nullable|url',
+            'lup_twitter' => 'nullable|url',
+            'lup_youtube' => 'nullable|url',
+            'lup_website' => 'nullable|url',
+            'lup_tiktok' => 'nullable|url',
         ]);
 
         if($validator->fails()) {
             return response()->json([
                 'status' => false,
-                'message' => 'Validator error',
+                'message' => 'Data tidak valid',
                 'error' => $validator->errors()
             ], 400);
         }
 
         try {
-            $linkplanneronline->update([
+            $linkupload->update([
                 'lup_instagram' => $request->lup_instagram,
                 'lup_facebook' => $request->lup_facebook,
                 'lup_twitter' => $request->lup_twitter,
@@ -1681,19 +1865,124 @@ class ApiController extends Controller
                 'lup_website' => $request->lup_website,
                 'lup_tiktok' => $request->lup_tiktok,
             ]);
+
             return response()->json([
                 'status' => true,
-                'message' => 'Berhasil mengupdate data link upload planner',
+                'message' => 'Berhasil membuat link',
                 'data' => [
-                    'link_upload' => $linkplanneronline
+                    'link_upload' => $linkupload
                 ]
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Gagal mengupdate data link upload planner',
+                'message' => 'Gagal membuat link',
                 'error' => $e->getMessage()
             ], 500);
         }
     }
+
+    public function updateOnlineContentPlanner(Request $request, $id) {
+        $onlinePlanner = OnlinePlanner::find($id);
+        
+        if (!$onlinePlanner) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Online Content Planner tidak ditemukan',
+            ], 404);
+        }
+        
+        // Validate the request data
+        $validator = Validator::make($request->all(), [
+            'onp_tanggal' => 'date|required',
+            'onp_hari' => 'string|required',
+            'onp_topik_konten' => 'string|required|unique:online_planners,onp_topik_konten,' . $id . ',onp_id',
+            'onp_admin' => 'required|string',
+            'onp_platform' => 'string|required', 
+            'onp_checkpoint' => 'string|required|in:jayaridho,gilang,chris,winny',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak valid',
+                'error' => $validator->errors()
+            ], 400);
+        }
+
+        // Validate platform values manually
+        $allowedPlatforms = ['website', 'instagram', 'twitter', 'facebook', 'youtube', 'tiktok'];
+        $platforms = explode(',', strtolower($request->onp_platform));
+        
+        foreach ($platforms as $platform) {
+            $trimmedPlatform = trim($platform);
+            if (!in_array($trimmedPlatform, $allowedPlatforms)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Platform tidak valid',
+                    'error' => 'Platform harus salah satu dari: ' . implode(', ', $allowedPlatforms)
+                ], 400);
+            }
+        }
+
+        try {
+            // Update the online planner
+            $onlinePlanner->update([
+                'onp_tanggal' => $request->onp_tanggal,
+                'onp_hari' => $request->onp_hari,
+                'onp_topik_konten' => $request->onp_topik_konten,
+                'onp_admin' => $request->onp_admin,
+                'onp_platform' => strtolower($request->onp_platform),
+                'onp_checkpoint' => strtolower($request->onp_checkpoint),
+            ]);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil memperbarui Online Content Planner',
+                'data' => $onlinePlanner
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memperbarui Online Content Planner',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deleteOnlineContentPlanner($id) {
+        try {
+            // Find the OnlinePlanner record
+            $onlinePlanner = OnlinePlanner::find($id);
+            
+            if (!$onlinePlanner) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Online Content Planner tidak ditemukan',
+                ], 404);
+            }
+            
+            // Find and delete the associated LinkUploadPlanner record
+            $linkUploadPlanner = LinkUploadPlanner::where('onp_id', $id)->first();
+            
+            if ($linkUploadPlanner) {
+                $linkUploadPlanner->delete();
+            }
+            
+            // Delete the OnlinePlanner record
+            $onlinePlanner->delete();
+            
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil menghapus Online Content Planner',
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menghapus Online Content Planner',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    //End Module
 }

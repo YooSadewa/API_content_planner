@@ -65,6 +65,9 @@ Route::delete('/detailplatform/delete/{id}', [ApiController::class, 'deleteDetai
 //Online Content Planner
 Route::get('/onlinecontentplanner', [ApiController::class, 'getOnlineContentPlanner']);
 Route::get('/onlinecontentplanner/scheduled', [ApiController::class, 'getPlannersWithoutLinks']);
-Route::post('/uploadcontent/create', [ApiController::class, 'createLinkOnlinePlanner']);
+Route::get('/onlinecontentplanner/done', [ApiController::class, 'getPlannersWithLinks']);
+Route::get('/linkplanner/{onp_id}', [ApiController::class, 'getLinkUploadPlannerByOnpId']);
 Route::post('/onlineplanner/create', [ApiController::class, 'createOnlineContentPlanner']);
-Route::put('/uploadcontent/update/{id}', [ApiController::class, 'updateLinkOnlinePlanner']);
+Route::put('/uploadcontent/{onp_id}', [ApiController::class, 'uploadLinkOnlinePlanner']);
+Route::put('/onlineplanner/update/{id}', [ApiController::class, 'updateOnlineContentPlanner']);
+Route::delete('/onlinecontentplanner/delete/{id}', [ApiController::class, 'deleteOnlineContentPlanner']);

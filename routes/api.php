@@ -71,3 +71,7 @@ Route::post('/onlineplanner/create', [ApiController::class, 'createOnlineContent
 Route::put('/uploadcontent/{onp_id}', [ApiController::class, 'uploadLinkOnlinePlanner']);
 Route::put('/onlineplanner/update/{id}', [ApiController::class, 'updateOnlineContentPlanner']);
 Route::delete('/onlinecontentplanner/delete/{id}', [ApiController::class, 'deleteOnlineContentPlanner']);
+
+//Analytic Content
+Route::get('/analyticcontent', [ApiController::class, 'getAnalytic']);
+Route::post('/analyticcontent/create', [ApiController::class, 'createAnalytic']);

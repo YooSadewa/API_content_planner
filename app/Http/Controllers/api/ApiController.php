@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AnalyticContent;
+use App\Models\AnalyticContentReport;
 use App\Models\DetailAccount;
 use App\Models\DetailPlatform;
 use Illuminate\Http\Request;
@@ -1454,7 +1456,7 @@ class ApiController extends Controller
                     foreach ($platforms as $platform => $link) {
                         if ($link) {
                             $platformData[$platform] = [
-                                'link' => $link
+                                'link' => $link,
                             ];
                             $hasLinks = true;
                             
@@ -1469,6 +1471,7 @@ class ApiController extends Controller
                 // Calculate priority for sorting (0: no links, 1: partial fulfillment, 2: complete fulfillment)
                 $sortPriority = 0;
                 if ($hasLinks) {
+                    $platformData['lup_id'] = $planner->linkUploadPlanner->lup_id;
                     $sortPriority = 1; // Has some links
                     if (count($requiredPlatforms) > 0 && $fulfilledPlatforms == count($requiredPlatforms)) {
                         $sortPriority = 2; // Fully fulfilled all required platforms
@@ -1985,4 +1988,154 @@ class ApiController extends Controller
         }
     }
     //End Module
+
+    //Module Analytic Content
+    public function getAnalytic() {
+        try {
+            // 1. Ambil semua data analitik beserta relasinya
+            $analytics = AnalyticContentReport::with('analytic')->get();
+            
+            // 2. Periksa apakah data kosong
+            if ($analytics->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data Analytic Content tidak ditemukan',
+                ], 404);
+            }
+            
+            // 3. Siapkan array kosong untuk menyimpan hasil
+            $hasilAkhir = [];
+            
+            // 4. Kelompokkan data berdasarkan anc_id
+            // Pertama buat pengelompokan menggunakan anc_id sebagai kunci
+            $dataPerKonten = $analytics->groupBy('anc_id');
+            
+            // 5. Untuk setiap kelompok konten, susun datanya
+            foreach ($dataPerKonten as $ancId => $itemKonten) {
+                // Ambil item pertama untuk data dasar
+                $itemPertama = $itemKonten->first();
+                
+                // Buat array untuk menyimpan data dasar
+                $dataKonten = [
+                    'anc_id' => $ancId,
+                    'anc_tanggal' => $itemPertama->analytic->anc_tanggal,
+                    'anc_hari' => $itemPertama->analytic->anc_hari,
+                    'lup_id' => $itemPertama->analytic->lup_id,
+                    'created_at' => $itemPertama->created_at,
+                    'updated_at' => $itemPertama->updated_at,
+                    'platforms' => [] // Array kosong untuk menyimpan daftar platform
+                ];
+                
+                // 6. Tambahkan data platform untuk konten ini
+                foreach ($itemKonten as $platform) {
+                    $dataKonten['platforms'][] = [
+                        'acr_id' => $platform->acr_id,
+                        'acr_platform' => $platform->acr_platform,
+                        'acr_reach' => $platform->acr_reach,
+                        'acr_like' => $platform->acr_like,
+                        'acr_comment' => $platform->acr_comment,
+                        'acr_share' => $platform->acr_share,
+                        'acr_save' => $platform->acr_save
+                    ];
+                }
+                
+                // 7. Tambahkan ke hasil akhir
+                $hasilAkhir[] = $dataKonten;
+            }
+            
+            // 8. Kembalikan response sukses
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mendapatkan data Analisis Konten',
+                'data' => [
+                    'analytic_content' => $hasilAkhir
+                ]
+            ], 200);
+            
+        } catch (\Throwable $th) {
+            // 9. Tangani error
+            return response()->json([
+                'status' => false,
+                'message' => 'Terjadi kesalahan: ' . $th->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function createAnalytic(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'anc_tanggal' => 'date|required',
+            'anc_hari' => 'string|required',
+            'lup_id' => 'string|required|unique:analytic_content|exists:link_upload_planners,lup_id',
+            'platforms' => 'required|string',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak valid',
+                'error' => $validator->errors()
+            ], 400);
+        }
+        
+        // Validate platform values manually
+        $allowedPlatforms = ['website', 'instagram', 'twitter', 'facebook', 'youtube', 'tiktok'];
+        $selectedPlatforms = explode(',', strtolower($request->platforms));
+        
+        foreach ($selectedPlatforms as $platform) {
+            if (!in_array(trim($platform), $allowedPlatforms)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Platform tidak valid',
+                    'error' => 'Platform harus salah satu dari: ' . implode(', ', $allowedPlatforms)
+                ], 400);
+            }
+            
+            // Pastikan ada data reach untuk setiap platform
+            if (!isset($request->reach[$platform])) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data tidak valid',
+                    'error' => "Data reach untuk platform $platform tidak ditemukan"
+                ], 400);
+            }
+        }
+    
+        try {
+            $analytic = AnalyticContent::create([
+                'lup_id' => $request->lup_id,
+                'anc_tanggal' => $request->anc_tanggal,
+                'anc_hari' => $request->anc_hari,
+            ]);
+    
+            $reports = [];
+            foreach ($selectedPlatforms as $platform) {
+                $platform = trim($platform);
+                $report = AnalyticContentReport::create([
+                    'anc_id' => $analytic->anc_id,
+                    'acr_platform' => $platform,
+                    'acr_reach' => $request->reach[$platform] ?? null,
+                    'acr_like' => $request->like[$platform] ?? null,
+                    'acr_comment' => $request->comment[$platform] ?? null,
+                    'acr_share' => $request->share[$platform] ?? null,
+                    'acr_save' => $request->save[$platform] ?? null,
+                ]);
+                $reports[] = $report;
+            }
+    
+            return response()->json([
+                'status' => true,
+                'message' => 'Data berhasil disimpan',
+                'data' => [
+                    'analytic_content' => $analytic,
+                    'analytic_content_reports' => $reports,
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal membuat Analisis Konten',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

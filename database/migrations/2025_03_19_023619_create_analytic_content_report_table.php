@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id('acr_id');
             $table->unsignedBigInteger('anc_id');
             $table->set('acr_platform', ['website', 'instagram', 'twitter', 'facebook', 'youtube', 'tiktok']);
-            $table->string('acr_reach');
+            $table->string('acr_reach')->nullable();
             $table->string('acr_like')->nullable();
             $table->string('acr_comment')->nullable();
             $table->string('acr_share')->nullable();

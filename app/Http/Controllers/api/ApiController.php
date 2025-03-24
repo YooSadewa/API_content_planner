@@ -1992,30 +1992,22 @@ class ApiController extends Controller
     //Module Analytic Content
     public function getAnalytic() {
         try {
-            // 1. Ambil semua data analitik beserta relasinya
             $analytics = AnalyticContentReport::with('analytic')->get();
-            
-            // 2. Periksa apakah data kosong
+
             if ($analytics->isEmpty()) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Data Analytic Content tidak ditemukan',
                 ], 404);
             }
-            
-            // 3. Siapkan array kosong untuk menyimpan hasil
+
             $hasilAkhir = [];
-            
-            // 4. Kelompokkan data berdasarkan anc_id
-            // Pertama buat pengelompokan menggunakan anc_id sebagai kunci
+
             $dataPerKonten = $analytics->groupBy('anc_id');
-            
-            // 5. Untuk setiap kelompok konten, susun datanya
+
             foreach ($dataPerKonten as $ancId => $itemKonten) {
-                // Ambil item pertama untuk data dasar
                 $itemPertama = $itemKonten->first();
                 
-                // Buat array untuk menyimpan data dasar
                 $dataKonten = [
                     'anc_id' => $ancId,
                     'anc_tanggal' => $itemPertama->analytic->anc_tanggal,
@@ -2023,10 +2015,9 @@ class ApiController extends Controller
                     'lup_id' => $itemPertama->analytic->lup_id,
                     'created_at' => $itemPertama->created_at,
                     'updated_at' => $itemPertama->updated_at,
-                    'platforms' => [] // Array kosong untuk menyimpan daftar platform
+                    'platforms' => [] 
                 ];
-                
-                // 6. Tambahkan data platform untuk konten ini
+
                 foreach ($itemKonten as $platform) {
                     $dataKonten['platforms'][] = [
                         'acr_id' => $platform->acr_id,
@@ -2039,11 +2030,13 @@ class ApiController extends Controller
                     ];
                 }
                 
-                // 7. Tambahkan ke hasil akhir
                 $hasilAkhir[] = $dataKonten;
             }
             
-            // 8. Kembalikan response sukses
+            usort($hasilAkhir, function($a, $b) {
+                return strtotime($b['anc_tanggal']) - strtotime($a['anc_tanggal']);
+            });
+            
             return response()->json([
                 'status' => true,
                 'message' => 'Berhasil mendapatkan data Analisis Konten',
@@ -2053,7 +2046,6 @@ class ApiController extends Controller
             ], 200);
             
         } catch (\Throwable $th) {
-            // 9. Tangani error
             return response()->json([
                 'status' => false,
                 'message' => 'Terjadi kesalahan: ' . $th->getMessage(),
@@ -2065,7 +2057,7 @@ class ApiController extends Controller
         $validator = Validator::make($request->all(), [
             'anc_tanggal' => 'date|required',
             'anc_hari' => 'string|required',
-            'lup_id' => 'string|required|unique:analytic_content|exists:link_upload_planners,lup_id',
+            'lup_id' => 'string|required',
             'platforms' => 'required|string',
         ]);
         

@@ -11,15 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('analytic_content', function (Blueprint $table) {
+        Schema::create('analytic_content_input', function (Blueprint $table) {
             $table->id('anc_id');
-            $table->unsignedBigInteger('lup_id');
-            $table->date('anc_tanggal');
+            $table->date('anc_tgl');
             $table->string('anc_hari');
-            $table->timestamps();
-
+            $table->unsignedBigInteger('lup_id');
             $table->foreign('lup_id')->references('lup_id')->on('link_upload_planners')->onDelete('cascade');
-        });
+            $table->unsignedBigInteger('anf_id');
+            $table->foreign('anf_id')->references('anf_id')->on('analytic_fields')->onDelete('cascade');
+            $table->integer('value')->nullable();
+            $table->timestamps();
+        }); 
     }
 
     /**
@@ -27,6 +29,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('analytic_content');
+        Schema::dropIfExists('analytic_content_input');
     }
 };

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\api;
 use App\Http\Controllers\Controller;
 use App\Models\AnalyticContent;
 use App\Models\AnalyticContentReport;
+use App\Models\AnalyticInput;
+use App\Models\AnalyticPlatform;
 use App\Models\DetailAccount;
 use App\Models\DetailPlatform;
 use Illuminate\Http\Request;
@@ -1990,144 +1992,217 @@ class ApiController extends Controller
     //End Module
 
     //Module Analytic Content
-    public function getAnalytic() {
-        try {
-            $analytics = AnalyticContentReport::with('analytic')->get();
-
-            if ($analytics->isEmpty()) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Data Analytic Content tidak ditemukan',
-                ], 404);
-            }
-
-            $hasilAkhir = [];
-
-            $dataPerKonten = $analytics->groupBy('anc_id');
-
-            foreach ($dataPerKonten as $ancId => $itemKonten) {
-                $itemPertama = $itemKonten->first();
+    // public function getAnalytic($id = null) {
+    //     try {
+    //         // If an ID is provided, filter by that ID
+    //         if ($id !== null) {
+    //             $analytics = AnalyticContentReport::with('analytic')
+    //                 ->whereHas('analytic', function($query) use ($id) {
+    //                     $query->where('anc_id', $id);
+    //                 })
+    //                 ->get();
+    //         } else {
+    //             // Get all analytics as before
+    //             $analytics = AnalyticContentReport::with('analytic')->get();
+    //         }
+    
+    //         if ($analytics->isEmpty()) {
+    //             return response()->json([
+    //                 'status' => false,
+    //                 'message' => 'Data Analytic Content tidak ditemukan',
+    //             ], 404);
+    //         }
+    
+    //         $hasilAkhir = [];
+    
+    //         $dataPerKonten = $analytics->groupBy('anc_id');
+    
+    //         foreach ($dataPerKonten as $ancId => $itemKonten) {
+    //             $itemPertama = $itemKonten->first();
                 
-                $dataKonten = [
-                    'anc_id' => $ancId,
-                    'anc_tanggal' => $itemPertama->analytic->anc_tanggal,
-                    'anc_hari' => $itemPertama->analytic->anc_hari,
-                    'lup_id' => $itemPertama->analytic->lup_id,
-                    'created_at' => $itemPertama->created_at,
-                    'updated_at' => $itemPertama->updated_at,
-                    'platforms' => [] 
-                ];
-
-                foreach ($itemKonten as $platform) {
-                    $dataKonten['platforms'][] = [
-                        'acr_id' => $platform->acr_id,
-                        'acr_platform' => $platform->acr_platform,
-                        'acr_reach' => $platform->acr_reach,
-                        'acr_like' => $platform->acr_like,
-                        'acr_comment' => $platform->acr_comment,
-                        'acr_share' => $platform->acr_share,
-                        'acr_save' => $platform->acr_save
-                    ];
-                }
+    //             $dataKonten = [
+    //                 'anc_id' => $ancId,
+    //                 'anc_tanggal' => $itemPertama->analytic->anc_tanggal,
+    //                 'anc_hari' => $itemPertama->analytic->anc_hari,
+    //                 'lup_id' => $itemPertama->analytic->lup_id,
+    //                 'created_at' => $itemPertama->created_at,
+    //                 'updated_at' => $itemPertama->updated_at,
+    //                 'platforms' => [] 
+    //             ];
+    
+    //             foreach ($itemKonten as $platform) {
+    //                 $dataKonten['platforms'][] = [
+    //                     'acr_id' => $platform->acr_id,
+    //                     'acr_platform' => $platform->acr_platform,
+    //                     'acr_reach' => $platform->acr_reach,
+    //                     'acr_like' => $platform->acr_like,
+    //                     'acr_comment' => $platform->acr_comment,
+    //                     'acr_share' => $platform->acr_share,
+    //                     'acr_save' => $platform->acr_save
+    //                 ];
+    //             }
                 
-                $hasilAkhir[] = $dataKonten;
-            }
+    //             $hasilAkhir[] = $dataKonten;
+    //         }
             
-            usort($hasilAkhir, function($a, $b) {
-                return strtotime($b['anc_tanggal']) - strtotime($a['anc_tanggal']);
-            });
+    //         usort($hasilAkhir, function($a, $b) {
+    //             return strtotime($b['anc_tanggal']) - strtotime($a['anc_tanggal']);
+    //         });
             
-            return response()->json([
-                'status' => true,
-                'message' => 'Berhasil mendapatkan data Analisis Konten',
-                'data' => [
-                    'analytic_content' => $hasilAkhir
-                ]
-            ], 200);
+    //         return response()->json([
+    //             'status' => true,
+    //             'message' => 'Berhasil mendapatkan data Analisis Konten',
+    //             'data' => [
+    //                 'analytic_content' => $hasilAkhir
+    //             ]
+    //         ], 200);
             
-        } catch (\Throwable $th) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Terjadi kesalahan: ' . $th->getMessage(),
-            ], 500);
-        }
-    }
+    //     } catch (\Throwable $th) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => 'Terjadi kesalahan: ' . $th->getMessage(),
+    //         ], 500);
+    //     }
+    // }
 
-    public function createAnalytic(Request $request) {
+    public function createAnalyticPlatform(Request $request) {
         $validator = Validator::make($request->all(), [
-            'anc_tanggal' => 'date|required',
-            'anc_hari' => 'string|required',
-            'lup_id' => 'string|required',
-            'platforms' => 'required|string',
+            'anp_name' => 'string|required|unique:analytic_platforms'
         ]);
-        
-        if ($validator->fails()) {
+
+        if($validator->fails()) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data tidak valid',
-                'error' => $validator->errors()
+                'errors' => $validator->errors()
             ], 400);
         }
-        
-        // Validate platform values manually
-        $allowedPlatforms = ['website', 'instagram', 'twitter', 'facebook', 'youtube', 'tiktok'];
-        $selectedPlatforms = explode(',', strtolower($request->platforms));
-        
-        foreach ($selectedPlatforms as $platform) {
-            if (!in_array(trim($platform), $allowedPlatforms)) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Platform tidak valid',
-                    'error' => 'Platform harus salah satu dari: ' . implode(', ', $allowedPlatforms)
-                ], 400);
-            }
-            
-            // Pastikan ada data reach untuk setiap platform
-            if (!isset($request->reach[$platform])) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Data tidak valid',
-                    'error' => "Data reach untuk platform $platform tidak ditemukan"
-                ], 400);
-            }
-        }
-    
+
         try {
-            $analytic = AnalyticContent::create([
-                'lup_id' => $request->lup_id,
-                'anc_tanggal' => $request->anc_tanggal,
-                'anc_hari' => $request->anc_hari,
+            $analyticplatform = AnalyticPlatform::create([
+                'anp_name' => $request->anp_name
             ]);
-    
-            $reports = [];
-            foreach ($selectedPlatforms as $platform) {
-                $platform = trim($platform);
-                $report = AnalyticContentReport::create([
-                    'anc_id' => $analytic->anc_id,
-                    'acr_platform' => $platform,
-                    'acr_reach' => $request->reach[$platform] ?? null,
-                    'acr_like' => $request->like[$platform] ?? null,
-                    'acr_comment' => $request->comment[$platform] ?? null,
-                    'acr_share' => $request->share[$platform] ?? null,
-                    'acr_save' => $request->save[$platform] ?? null,
-                ]);
-                $reports[] = $report;
-            }
-    
+
             return response()->json([
                 'status' => true,
-                'message' => 'Data berhasil disimpan',
+                'message' => 'Berhasil membuat analisis platform baru',
                 'data' => [
-                    'analytic_content' => $analytic,
-                    'analytic_content_reports' => $reports,
+                    'analytic_platform' => $analyticplatform
                 ]
-            ], 200);
+            ], 201);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Gagal membuat Analisis Konten',
-                'error' => $e->getMessage()
+                'message' => 'Gagal membuat analisis platform',
+                'errors' => $e->getMessage()
+                ], 500);
+        }
+    }
+
+    public function createPlatformField(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'anp_id' => 'required|integer|exists:analytic_platforms,anp_id',
+            'anf_name' => 'required|string',
+            'anf_required' => 'required|boolean'
+        ]);
+
+        if($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak valid',
+                'errors' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $platformfield = AnalyticPlatform::create([
+                'anp_id' => $request->anp_id,
+                'anf_name' => $request->anf_name,
+                'anf_required' => $request->anf_required
+            ]);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil membuat analisis platform field baru',
+                'data' => [
+                    'analytic_platform_field' => $platformfield
+                ]
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal membuat analisis platform field',
+                'errors' => $e->getMessage()
             ], 500);
         }
     }
+
+    public function createAnalyticInput(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'anc_tgl' => 'date|required|unique:analytic_content_input',
+            'anc_hari' => 'required|string',
+            'lup_id' => 'required|integer|exists:link_upload_planners,lup_id',
+            'anf_id' => 'required|integer|exists:analytic_fields,anf_id',
+            'value' => 'required|integer'
+        ]);
+
+        if($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak valid',
+                'errors' => $validator->errors()
+            ], 400);
+        }   
+
+        try {
+            $analyticInput = AnalyticInput::create([
+                'anc_tgl' => $request->anc_tgl,
+                'anc_hari' => $request->anc_hari,
+                'lup_id' => $request->lup_id,
+                'anf_id' => $request->anf_id,
+                'value' => $request->value
+            ]);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil membuat analisis input baru',
+                'data' => [
+                    'analytic_input' => $analyticInput
+                ]
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal membuat analisis input',
+                'errors' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // public function deleteAnalytic($id) {
+    //     try {
+    //         // Find the OnlinePlanner record
+    //         $analytic = AnalyticContent::find($id);
+            
+    //         if (!$analytic) {
+    //             return response()->json([
+    //                 'status' => false,
+    //                 'message' => 'Data Analisis tidak ditemukan',
+    //             ], 404);
+    //         }
+    //         // Delete the analytic record
+    //         $analytic->delete();
+            
+    //         return response()->json([
+    //             'status' => true,
+    //             'message' => 'Berhasil menghapus Data Analisis',
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => 'Gagal menghapus Data Analisis',
+    //             'error' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
 }

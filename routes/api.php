@@ -74,9 +74,11 @@ Route::delete('/onlinecontentplanner/delete/{id}', [ApiController::class, 'delet
 
 //Analytic Content
 Route::get('/analyticcontent', [ApiController::class, 'getAnalytic']);
-Route::get('/analyticcontent/{id}', [ApiController::class, 'getAnalytic']);
+// Route::get('/analyticcontent/{id}', [ApiController::class, 'getAnalytic']);
+Route::get('/analyticcontent/get/platform', [ApiController::class, 'getAnalyticPlatform']);
+Route::get('/analyticcontent/get/field', [ApiController::class, 'getPlatformFields']);
 Route::post('/analyticcontent/create/platform', [ApiController::class, 'createAnalyticPlatform']);
 Route::post('/analyticcontent/create/field', [ApiController::class, 'createPlatformField']);
 Route::post('/analyticcontent/create', [ApiController::class, 'createAnalyticInput']);
 Route::put('/analyticcontent/update/{id}', [ApiController::class, 'updateAnalytic']);
-Route::delete('/analyticcontent/delete/{id}', [ApiController::class, 'deleteAnalytic']);
+Route::delete('/analyticcontent/delete/{lup_id}/{anc_tgl}', [ApiController::class, 'deleteAnalyticByLupAndDate']);

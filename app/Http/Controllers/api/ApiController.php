@@ -5,6 +5,7 @@ namespace App\Http\Controllers\api;
 use App\Http\Controllers\Controller;
 use App\Models\AnalyticContent;
 use App\Models\AnalyticContentReport;
+use App\Models\AnalyticField;
 use App\Models\AnalyticInput;
 use App\Models\AnalyticPlatform;
 use App\Models\DetailAccount;
@@ -2065,6 +2066,111 @@ class ApiController extends Controller
     //     }
     // }
 
+    public function getAnalyticPlatform() {
+        try {
+            $analyticPlatforms = AnalyticPlatform::all();
+    
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mengambil data analytic platform',
+                'data' => [
+                    'analytic_platforms' => $analyticPlatforms
+                ]
+            ], 200);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mengambil data',
+                'errors' => $th->getMessage()
+            ], 500);
+        }
+    }    
+
+    public function getPlatformFields() {
+        try {
+            $fields = AnalyticField::with('platforms')->get();
+    
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mengambil semua field analytic platform',
+                'data' => [
+                    'fields' => $fields
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mengambil data field',
+                'errors' => $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    public function getAnalytic() {
+        try {
+            // Get analytic content with relations
+            $analyticContents = AnalyticInput::select(
+                'analytic_content_input.*',
+                'af.anf_name',
+                'af.anf_required',
+                'ap.anp_name',
+                'onp.onp_topik_konten'
+            )
+            ->from('analytic_content_input')
+            ->join('analytic_fields as af', 'analytic_content_input.anf_id', '=', 'af.anf_id')
+            ->join('analytic_platforms as ap', 'af.anp_id', '=', 'ap.anp_id')
+            ->join('link_upload_planners as lup', 'analytic_content_input.lup_id', '=', 'lup.lup_id')
+            ->join('online_planners as onp', function($join) {
+                $join->on('lup.onp_id', '=', 'onp.onp_id');
+            })
+            ->orderBy('analytic_content_input.anc_tgl', 'desc')
+            ->get();
+
+            if ($analyticContents->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data analytic content tidak ditemukan',
+                ], 404);
+            }
+
+            // Format the data
+            $formattedData = $analyticContents->map(function ($content) {
+                return [
+                    'anc_id' => $content->anc_id,
+                    'anc_tanggal' => $content->anc_tgl,
+                    'anc_hari' => $content->anc_hari,
+                    'lup_id' => $content->lup_id,
+                    'topik_konten' => $content->onp_topik_konten,
+                    'platform' => [
+                        'name' => $content->anp_name,
+                    ],
+                    'field' => [
+                        'name' => $content->anf_name,
+                        'required' => $content->anf_required == 1,
+                    ],
+                    'value' => $content->value,
+                    'created_at' => $content->created_at,
+                    'updated_at' => $content->updated_at
+                ];
+            });
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mendapatkan data Analytic Content',
+                'data' => [
+                    'analytic_content' => $formattedData
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal mendapatkan data Analytic Content',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function createAnalyticPlatform(Request $request) {
         $validator = Validator::make($request->all(), [
             'anp_name' => 'string|required|unique:analytic_platforms'
@@ -2105,7 +2211,7 @@ class ApiController extends Controller
             'anf_name' => 'required|string',
             'anf_required' => 'required|boolean'
         ]);
-
+    
         if($validator->fails()) {
             return response()->json([
                 'status' => false,
@@ -2113,14 +2219,14 @@ class ApiController extends Controller
                 'errors' => $validator->errors()
             ], 400);
         }
-
+    
         try {
-            $platformfield = AnalyticPlatform::create([
+            $platformfield = AnalyticField::create([
                 'anp_id' => $request->anp_id,
                 'anf_name' => $request->anf_name,
                 'anf_required' => $request->anf_required
             ]);
-
+    
             return response()->json([
                 'status' => true,
                 'message' => 'Berhasil membuat analisis platform field baru',
@@ -2135,17 +2241,19 @@ class ApiController extends Controller
                 'errors' => $e->getMessage()
             ], 500);
         }
-    }
+    }    
 
     public function createAnalyticInput(Request $request) {
+        // Validasi request
         $validator = Validator::make($request->all(), [
-            'anc_tgl' => 'date|required|unique:analytic_content_input',
-            'anc_hari' => 'required|string',
-            'lup_id' => 'required|integer|exists:link_upload_planners,lup_id',
-            'anf_id' => 'required|integer|exists:analytic_fields,anf_id',
-            'value' => 'required|integer'
+            'inputs' => 'required|array',
+            'inputs.*.anc_tgl' => 'required|date',
+            'inputs.*.anc_hari' => 'required|string',
+            'inputs.*.lup_id' => 'required|integer|exists:link_upload_planners,lup_id',
+            'inputs.*.anf_id' => 'required|integer|exists:analytic_fields,anf_id',
+            'inputs.*.value' => 'required|integer'
         ]);
-
+    
         if($validator->fails()) {
             return response()->json([
                 'status' => false,
@@ -2153,56 +2261,73 @@ class ApiController extends Controller
                 'errors' => $validator->errors()
             ], 400);
         }   
-
+    
         try {
-            $analyticInput = AnalyticInput::create([
-                'anc_tgl' => $request->anc_tgl,
-                'anc_hari' => $request->anc_hari,
-                'lup_id' => $request->lup_id,
-                'anf_id' => $request->anf_id,
-                'value' => $request->value
-            ]);
-
+            // Mulai transaksi database
+            DB::beginTransaction();
+            
+            $createdInputs = [];
+            
+            // Simpan semua input
+            foreach ($request->inputs as $input) {
+                $analyticInput = AnalyticInput::create([
+                    'anc_tgl' => $input['anc_tgl'],
+                    'anc_hari' => $input['anc_hari'],
+                    'lup_id' => $input['lup_id'],
+                    'anf_id' => $input['anf_id'],
+                    'value' => $input['value']
+                ]);
+                
+                $createdInputs[] = $analyticInput;
+            }
+            
+            // Commit transaksi jika semua berhasil
+            DB::commit();
+    
             return response()->json([
                 'status' => true,
-                'message' => 'Berhasil membuat analisis input baru',
+                'message' => 'Berhasil membuat analisis input batch',
                 'data' => [
-                    'analytic_input' => $analyticInput
+                    'analytic_inputs' => $createdInputs
                 ]
             ], 201);
         } catch (\Exception $e) {
+            // Rollback transaksi jika terjadi error
+            DB::rollBack();
+            
             return response()->json([
                 'status' => false,
-                'message' => 'Gagal membuat analisis input',
+                'message' => 'Gagal membuat analisis input batch',
                 'errors' => $e->getMessage()
             ], 500);
         }
     }
 
-    // public function deleteAnalytic($id) {
-    //     try {
-    //         // Find the OnlinePlanner record
-    //         $analytic = AnalyticContent::find($id);
-            
-    //         if (!$analytic) {
-    //             return response()->json([
-    //                 'status' => false,
-    //                 'message' => 'Data Analisis tidak ditemukan',
-    //             ], 404);
-    //         }
-    //         // Delete the analytic record
-    //         $analytic->delete();
-            
-    //         return response()->json([
-    //             'status' => true,
-    //             'message' => 'Berhasil menghapus Data Analisis',
-    //         ], 200);
-    //     } catch (\Exception $e) {
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => 'Gagal menghapus Data Analisis',
-    //             'error' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
+    public function deleteAnalyticByLupAndDate($lup_id, $anc_tgl) {
+        try {
+            // Find all analytic content with matching lup_id and anc_tgl
+            $deletedCount = AnalyticInput::where('lup_id', $lup_id)
+                                        ->where('anc_tgl', $anc_tgl)
+                                        ->delete();
+
+            if ($deletedCount === 0) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data analytic content tidak ditemukan',
+                ], 404);
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil menghapus ' . $deletedCount . ' data Analytic Content',
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menghapus data Analytic Content',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
